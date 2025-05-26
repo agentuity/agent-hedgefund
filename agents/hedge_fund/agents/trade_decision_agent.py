@@ -9,7 +9,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
 
-from .technical_analyst import (
+from technical_analyst import (
     TechnicalAnalysisRequest, 
     TechnicalAnalysisToolOutput,
     run_technical_analysis_tool,
@@ -85,6 +85,9 @@ def create_technical_analysis_request(request: TradeAnalysisRequest) -> Technica
             # Additional trend confirmation
             IndicatorSpec(name="sma", params={"period": 50}),
             IndicatorSpec(name="ema", params={"period": 200}),  # Long-term trend
+            # Volume analysis
+            IndicatorSpec(name="volume_ratio", params={"period": 20}),
+            IndicatorSpec(name="volume_trend", params={"period": 5}),
         ]
     )
 
@@ -222,7 +225,7 @@ def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
     else:
         tech_section.append("- No technical indicators available")
     
-    # Build complete prompt
+    # Consider moving this to a separate file
     prompt_sections = [
         f"You are a professional hedge fund analyst making trading decisions. "
         f"Analyze the following data for {request.symbol} ({request.asset_type.value}):",
@@ -341,7 +344,7 @@ def assess_market_context(state: TradeDecisionState) -> TradeDecisionState:
     
     return state
 
-def llm_analysis(state: TradeDecisionState) -> TradeDecisionState:
+def analyze_trade_signal(state: TradeDecisionState) -> TradeDecisionState:
     """Use LLM to analyze all gathered data and provide reasoning"""
     try:
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
@@ -423,7 +426,7 @@ def create_trade_decision_workflow() -> StateGraph:
     workflow.add_node("gather_sentiment", gather_market_sentiment)
     workflow.add_node("gather_options", gather_options_flow)
     workflow.add_node("assess_context", assess_market_context)
-    workflow.add_node("llm_analysis", llm_analysis)
+    workflow.add_node("analyze_trade_signal", analyze_trade_signal)
     workflow.add_node("final_decision", make_final_decision)
     
     # Define the workflow
@@ -433,8 +436,8 @@ def create_trade_decision_workflow() -> StateGraph:
     workflow.add_edge("gather_technical", "gather_sentiment")
     workflow.add_edge("gather_sentiment", "gather_options")
     workflow.add_edge("gather_options", "assess_context")
-    workflow.add_edge("assess_context", "llm_analysis")
-    workflow.add_edge("llm_analysis", "final_decision")
+    workflow.add_edge("assess_context", "analyze_trade_signal")
+    workflow.add_edge("analyze_trade_signal", "final_decision")
     workflow.add_edge("final_decision", END)
     
     return workflow.compile()
