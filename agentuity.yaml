@@ -56,9 +56,6 @@ bundler:
     - '**/__pycache__/**'
 # The agents that are part of this project
 agents:
-  - # The ID of the Agent which is automatically generated
-    id: agent_c60dd0039651cd16615094167aa2ac17
-    # The name of the Agent which is editable
-    name: valuation-agent
-    # The description of the Agent which is editable
-    description: An agent that gives valuation to a Stock
+  - id: agent_hedgefund
+    name: hedge-fund
+    description: AI Hedge Fund agent
