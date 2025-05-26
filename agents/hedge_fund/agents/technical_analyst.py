@@ -208,6 +208,71 @@ def detect_ema_crossover(ema_fast: List[float], ema_slow: List[float]) -> Dict[s
         'crossover_strength': crossover_strength
     }
 
+def volume_sma(volumes: List[float], period: int) -> List[float]:
+    """Calculate Simple Moving Average of volume"""
+    if not volumes or len(volumes) < period:
+        raise ValueError(f"Not enough volume data for SMA period {period}. Need {period}, got {len(volumes)}.")
+    return [float(np.mean(volumes[i-period+1:i+1])) for i in range(period-1, len(volumes))]
+
+def volume_ratio(volumes: List[float], period: int = 20) -> List[float]:
+    """Calculate volume ratio (current volume / average volume)"""
+    if not volumes or len(volumes) < period:
+        raise ValueError(f"Not enough volume data for ratio period {period}. Need {period}, got {len(volumes)}.")
+    
+    volume_avg = volume_sma(volumes, period)
+    ratios = []
+    
+    # Calculate ratios for the period where we have averages
+    for i in range(len(volume_avg)):
+        current_volume = volumes[i + period - 1]  # Align with SMA index
+        avg_volume = volume_avg[i]
+        if avg_volume > 0:
+            ratios.append(current_volume / avg_volume)
+        else:
+            ratios.append(1.0)  # Neutral ratio if no average
+    
+    return ratios
+
+def analyze_volume_trend(volumes: List[float], prices: List[float], period: int = 5) -> Dict[str, Any]:
+    """
+    Analyze volume trend and price-volume relationship
+    Returns volume trend analysis
+    """
+    if len(volumes) < period or len(prices) < period:
+        raise ValueError(f"Not enough data for volume trend analysis. Need {period} periods.")
+    
+    # Get recent volume and price data
+    recent_volumes = volumes[-period:]
+    recent_prices = prices[-period:]
+    
+    # Calculate volume trend (increasing/decreasing)
+    volume_changes = [recent_volumes[i] - recent_volumes[i-1] for i in range(1, len(recent_volumes))]
+    volume_trend = "increasing" if sum(volume_changes) > 0 else "decreasing"
+    
+    # Calculate price trend
+    price_changes = [recent_prices[i] - recent_prices[i-1] for i in range(1, len(recent_prices))]
+    price_trend = "increasing" if sum(price_changes) > 0 else "decreasing"
+    
+    # Analyze price-volume relationship
+    if volume_trend == "increasing" and price_trend == "increasing":
+        relationship = "bullish_confirmation"
+    elif volume_trend == "increasing" and price_trend == "decreasing":
+        relationship = "bearish_confirmation"
+    elif volume_trend == "decreasing" and price_trend == "increasing":
+        relationship = "weak_bullish"
+    elif volume_trend == "decreasing" and price_trend == "decreasing":
+        relationship = "weak_bearish"
+    else:
+        relationship = "neutral"
+    
+    return {
+        'volume_trend': volume_trend,
+        'price_trend': price_trend,
+        'relationship': relationship,
+        'avg_volume_change': np.mean(volume_changes),
+        'avg_price_change': np.mean(price_changes)
+    }
+
 # --- Signal Interpretation Functions ---
 
 def interpret_sma_signal(prices: List[float], sma_values: List[float], period: int) -> TechnicalSignal:
@@ -403,12 +468,89 @@ def interpret_ema_crossover_signal(ema_fast: List[float], ema_slow: List[float],
             reason=f"EMA({fast_period}) and EMA({slow_period}) converging - No clear trend"
         )
 
+def interpret_volume_ratio_signal(volume_ratios: List[float], period: int) -> TechnicalSignal:
+    """Interpret volume ratio signal for volume confirmation"""
+    current_ratio = volume_ratios[-1]
+    
+    if current_ratio > 2.0:
+        # Very high volume
+        return TechnicalSignal(
+            signal=SignalType.BUY,
+            strength=min(current_ratio / 3.0, 1.0),
+            reason=f"Very high volume ({current_ratio:.1f}x average) - Strong institutional interest"
+        )
+    elif current_ratio > 1.5:
+        # High volume
+        return TechnicalSignal(
+            signal=SignalType.BUY,
+            strength=min(current_ratio / 2.5, 0.8),
+            reason=f"High volume ({current_ratio:.1f}x average) - Increased interest"
+        )
+    elif current_ratio < 0.5:
+        # Very low volume
+        return TechnicalSignal(
+            signal=SignalType.SELL,
+            strength=min((1.0 - current_ratio) * 2, 0.7),
+            reason=f"Very low volume ({current_ratio:.1f}x average) - Lack of conviction"
+        )
+    elif current_ratio < 0.8:
+        # Low volume
+        return TechnicalSignal(
+            signal=SignalType.HOLD,
+            strength=0.3,
+            reason=f"Low volume ({current_ratio:.1f}x average) - Weak participation"
+        )
+    else:
+        # Normal volume
+        return TechnicalSignal(
+            signal=SignalType.NEUTRAL,
+            strength=0.2,
+            reason=f"Normal volume ({current_ratio:.1f}x average) - Typical activity"
+        )
+
+def interpret_volume_trend_signal(volume_trend_data: Dict[str, Any]) -> TechnicalSignal:
+    """Interpret volume trend and price-volume relationship"""
+    relationship = volume_trend_data['relationship']
+    volume_trend = volume_trend_data['volume_trend']
+    price_trend = volume_trend_data['price_trend']
+    
+    if relationship == "bullish_confirmation":
+        return TechnicalSignal(
+            signal=SignalType.BUY,
+            strength=0.8,
+            reason=f"Bullish confirmation - Rising prices with increasing volume"
+        )
+    elif relationship == "bearish_confirmation":
+        return TechnicalSignal(
+            signal=SignalType.SELL,
+            strength=0.8,
+            reason=f"Bearish confirmation - Falling prices with increasing volume"
+        )
+    elif relationship == "weak_bullish":
+        return TechnicalSignal(
+            signal=SignalType.HOLD,
+            strength=0.3,
+            reason=f"Weak bullish - Rising prices but decreasing volume (lack of conviction)"
+        )
+    elif relationship == "weak_bearish":
+        return TechnicalSignal(
+            signal=SignalType.HOLD,
+            strength=0.3,
+            reason=f"Weak bearish - Falling prices but decreasing volume (selling exhaustion?)"
+        )
+    else:
+        return TechnicalSignal(
+            signal=SignalType.NEUTRAL,
+            strength=0.1,
+            reason=f"Neutral volume-price relationship - No clear signal"
+        )
+
 # --- Data Fetching Functions ---
 
-def fetch_stock_data(symbol: str, timeframe: str, period_str: str = "1y") -> Optional[List[float]]:
+def fetch_stock_data(symbol: str, timeframe: str, period_str: str = "1y") -> Optional[Dict[str, List[float]]]:
     """
     Fetch stock data using yfinance
-    Returns None if data cannot be fetched, letting the caller handle the error
+    Returns dict with 'prices' and 'volumes' or None if data cannot be fetched
     """
     try:
         print(f"Fetching stock data for {symbol}, timeframe {timeframe}, period {period_str}")
@@ -422,21 +564,23 @@ def fetch_stock_data(symbol: str, timeframe: str, period_str: str = "1y") -> Opt
             return None
             
         prices = data['Close'].tolist()
-        if not prices:
-            print(f"Empty price list for {symbol}")
+        volumes = data['Volume'].tolist()
+        
+        if not prices or not volumes:
+            print(f"Empty price or volume list for {symbol}")
             return None
             
         print(f"Successfully fetched {len(prices)} data points for {symbol}")
-        return prices
+        return {"prices": prices, "volumes": volumes}
         
     except Exception as e:
         print(f"Error fetching stock data for {symbol}: {str(e)}")
         return None
 
-def fetch_crypto_data(symbol: str, timeframe: str, days_history: int = 365) -> Optional[List[float]]:
+def fetch_crypto_data(symbol: str, timeframe: str, days_history: int = 365) -> Optional[Dict[str, List[float]]]:
     """
     Fetch crypto data using CoinGecko API
-    Returns None if data cannot be fetched, letting the caller handle the error
+    Returns dict with 'prices' and 'volumes' or None if data cannot be fetched
     """
     try:
         print(f"Fetching crypto data for {symbol}, timeframe {timeframe}, days {days_history}")
@@ -469,19 +613,20 @@ def fetch_crypto_data(symbol: str, timeframe: str, days_history: int = 365) -> O
             days=days_history
         )
         
-        if not market_chart or 'prices' not in market_chart:
-            print(f"No price data returned for {symbol}")
+        if not market_chart or 'prices' not in market_chart or 'total_volumes' not in market_chart:
+            print(f"No price or volume data returned for {symbol}")
             return None
             
-        # Extract closing prices (second element of each [timestamp, price] pair)
+        # Extract closing prices and volumes
         prices = [price_point[1] for price_point in market_chart['prices']]
+        volumes = [volume_point[1] for volume_point in market_chart['total_volumes']]
         
-        if not prices:
-            print(f"Empty price list for {symbol}")
+        if not prices or not volumes:
+            print(f"Empty price or volume list for {symbol}")
             return None
             
         print(f"Successfully fetched {len(prices)} data points for {symbol}")
-        return prices
+        return {"prices": prices, "volumes": volumes}
         
     except Exception as e:
         print(f"Error fetching crypto data for {symbol}: {str(e)}")
@@ -490,22 +635,24 @@ def fetch_crypto_data(symbol: str, timeframe: str, days_history: int = 365) -> O
 # --- Core Tool Function ---
 
 def run_technical_analysis_tool(request: TechnicalAnalysisRequest) -> TechnicalAnalysisToolOutput:
-    price_data: Optional[List[float]] = None
+    market_data: Optional[Dict[str, List[float]]] = None
     data_fetch_error: Optional[str] = None
 
     try:
         if request.asset_type == AssetType.STOCK:
-            price_data = fetch_stock_data(request.symbol, request.timeframe)
+            market_data = fetch_stock_data(request.symbol, request.timeframe)
         elif request.asset_type == AssetType.CRYPTO:
             # Map symbol if needed (e.g. BTC-USD to bitcoin for coingecko)
-            price_data = fetch_crypto_data(request.symbol, request.timeframe)
+            market_data = fetch_crypto_data(request.symbol, request.timeframe)
         
-        if price_data is None or not price_data:
-            data_fetch_error = f"Failed to fetch price data for {request.symbol} ({request.asset_type.value}) with timeframe {request.timeframe}."
+        if market_data is None or not market_data:
+            data_fetch_error = f"Failed to fetch market data for {request.symbol} ({request.asset_type.value}) with timeframe {request.timeframe}."
     except Exception as e:
         data_fetch_error = f"Exception during data fetching for {request.symbol}: {str(e)}"
 
     indicator_results: List[IndicatorResult] = []
+    price_data = market_data["prices"] if market_data else None
+    volume_data = market_data["volumes"] if market_data else None
     current_price = price_data[-1] if price_data else None
 
     if data_fetch_error: # If data fetch failed, still return structure but with data error
@@ -570,6 +717,23 @@ def run_technical_analysis_tool(request: TechnicalAnalysisRequest) -> TechnicalA
                 current_value = ema_fast[-1] if ema_fast else None
                 if ema_fast and ema_slow:
                     signal = interpret_ema_crossover_signal(ema_fast, ema_slow, fast_period, slow_period)
+            elif ind_spec.name.lower() == "volume_ratio":
+                if not volume_data:
+                    error_msg = "Volume data not available for volume ratio analysis"
+                else:
+                    period = params.get("period", 20)
+                    values = volume_ratio(volume_data, period)
+                    current_value = values[-1] if values else None
+                    if values:
+                        signal = interpret_volume_ratio_signal(values, period)
+            elif ind_spec.name.lower() == "volume_trend":
+                if not volume_data or not price_data:
+                    error_msg = "Volume and price data not available for volume trend analysis"
+                else:
+                    values = analyze_volume_trend(volume_data, price_data)
+                    current_value = values['avg_volume_change'] if values else None
+                    if values:
+                        signal = interpret_volume_trend_signal(values)
             else:
                 error_msg = f"Unknown indicator: {ind_spec.name}"
                 
