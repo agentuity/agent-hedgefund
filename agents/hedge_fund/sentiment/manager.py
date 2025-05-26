@@ -18,7 +18,7 @@ class SentimentAnalysisRequest(BaseModel):
     """Request for sentiment analysis"""
     asset_type: AssetType
     symbol: str
-    sources: List[str] = Field(default_factory=lambda: ["reddit_sentiment", "fear_greed_index"])
+    sources: List[str] = Field(default_factory=lambda: ["fear_greed_index"])
     lookback_days: int = Field(default=7, ge=1, le=30)
 
 
@@ -47,7 +47,6 @@ class SentimentManager:
         """
         # Initialize all analyzers
         self.analyzers = {
-            "reddit_sentiment": RedditSentimentAnalyzer(),
             "fear_greed_index": FearGreedAnalyzer(),
             "news_sentiment": NewsSentimentAnalyzer(),
             "economic_sentiment": EconomicSentimentAnalyzer()
@@ -228,7 +227,7 @@ def analyze_sentiment(symbol: str,
     """
     if sources is None:
         # Default to free sources that don't require API keys
-        sources = ["reddit_sentiment", "fear_greed_index"]
+        sources = ["fear_greed_index"]
     
     manager = SentimentManager()
     request = SentimentAnalysisRequest(

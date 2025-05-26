@@ -9,12 +9,19 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
 
-from technical_analyst import (
+from agents.hedge_fund.agents.technical_analyst import (
     TechnicalAnalysisRequest, 
     TechnicalAnalysisToolOutput,
     run_technical_analysis_tool,
     AssetType,
     IndicatorSpec
+)
+
+from agents.hedge_fund.agents.market_sentiment_analyst import (
+    MarketSentimentRequest,
+    MarketSentimentToolOutput,
+    SentimentSourceSpec,
+    run_market_sentiment_tool
 )
 
 # --- Pydantic Schemas ---
@@ -225,14 +232,50 @@ def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
     else:
         tech_section.append("- No technical indicators available")
     
-    # Consider moving this to a separate file
+    # Build sentiment analysis section
+    sentiment_section = []
+    sentiment_section.append("MARKET SENTIMENT:")
+    
+    if sentiment and not sentiment.get("error"):
+        overall_score = sentiment.get("overall_sentiment_score")
+        overall_signal = sentiment.get("overall_sentiment_signal")
+        
+        if overall_signal:
+            sentiment_type = overall_signal.get("sentiment", "UNKNOWN")
+            confidence = overall_signal.get("confidence", 0.0)
+            reason = overall_signal.get("reason", "No reason provided")
+            sentiment_section.append(f"Overall: {sentiment_type} (confidence: {confidence:.2f}) - {reason}")
+        else:
+            sentiment_section.append(f"Overall Score: {overall_score:.3f}" if overall_score else "No overall sentiment")
+        
+        # Add individual source details
+        sources = sentiment.get("sources", {})
+        for source_name, source_data in sources.items():
+            if source_data.get("available"):
+                score = source_data.get("sentiment_score", 0.0)
+                signal = source_data.get("sentiment_signal", {})
+                data_points = source_data.get("data_points", 0)
+                
+                if signal:
+                    signal_type = signal.get("sentiment", "UNKNOWN")
+                    signal_conf = signal.get("confidence", 0.0)
+                    sentiment_section.append(f"- {source_name}: {signal_type} (score: {score:.3f}, confidence: {signal_conf:.2f}, {data_points} data points)")
+                else:
+                    sentiment_section.append(f"- {source_name}: Score {score:.3f} ({data_points} data points)")
+            else:
+                error = source_data.get("error", "Unknown error")
+                sentiment_section.append(f"- {source_name}: ERROR - {error}")
+    else:
+        error_msg = sentiment.get("error", "No sentiment data available") if sentiment else "No sentiment data"
+        sentiment_section.append(f"ERROR: {error_msg}")
+    
     prompt_sections = [
         f"You are a professional hedge fund analyst making trading decisions. "
         f"Analyze the following data for {request.symbol} ({request.asset_type.value}):",
         "",
         "\n".join(tech_section),
         "",
-        f"MARKET SENTIMENT: {sentiment}",
+        "\n".join(sentiment_section),
         "",
         f"OPTIONS FLOW: {options_flow}",
         "",
@@ -240,12 +283,12 @@ def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
         "",
         "Based on this comprehensive analysis, provide:",
         "1. Your overall assessment of the trading opportunity",
-        "2. Key confluence factors (where multiple indicators align)",
+        "2. Key confluence factors (where technical and sentiment align)",
         "3. Main risks and concerns",
-        "4. Market structure considerations",
+        "4. How sentiment supports or contradicts technical signals",
         "5. Your confidence level in any potential trade",
         "",
-        "Be specific about WHY you would or wouldn't trade this setup. Focus on confluence of signals and risk-reward."
+        "Be specific about WHY you would or wouldn't trade this setup. Focus on confluence of technical and sentiment signals, and risk-reward."
     ]
     
     prompt = "\n".join(prompt_sections)
@@ -283,16 +326,67 @@ def gather_technical_analysis(state: TradeDecisionState) -> TradeDecisionState:
     return state
 
 def gather_market_sentiment(state: TradeDecisionState) -> TradeDecisionState:
-    """Placeholder for market sentiment analysis"""
-    # TODO: Integrate with news APIs, social sentiment, etc.
-    state["market_sentiment"] = {
-        "overall_sentiment": "neutral",
-        "news_sentiment": "neutral",
-        "social_sentiment": "neutral",
-        "fear_greed_index": 50,
-        "note": "Placeholder - to be implemented with real sentiment data"
-    }
-    print("📊 Market sentiment gathered (placeholder)")
+    """Gather real market sentiment analysis using multiple sources"""
+    try:
+        request = state["request"]
+        
+        # Create sentiment analysis request
+        sentiment_request = MarketSentimentRequest(
+            asset_type=request.asset_type,
+            symbol=request.symbol,
+            lookback_days=7,
+            sources=[
+                SentimentSourceSpec(name="news_sentiment"),
+                SentimentSourceSpec(name="fear_greed_index"),
+                SentimentSourceSpec(name="economic_sentiment")
+            ]
+        )
+        
+        # Run sentiment analysis
+        sentiment_result = run_market_sentiment_tool(sentiment_request)
+        
+        # Extract key sentiment data
+        sentiment_data = {
+            "overall_sentiment_score": sentiment_result.overall_sentiment_score,
+            "overall_sentiment_signal": sentiment_result.overall_sentiment_signal.model_dump() if sentiment_result.overall_sentiment_signal else None,
+            "sources": {}
+        }
+        
+        # Process individual source results
+        for source in sentiment_result.sources:
+            if source.error:
+                sentiment_data["sources"][source.source] = {
+                    "error": source.error,
+                    "available": False
+                }
+            else:
+                sentiment_data["sources"][source.source] = {
+                    "sentiment_score": source.sentiment_score,
+                    "sentiment_signal": source.sentiment_signal.model_dump() if source.sentiment_signal else None,
+                    "data_points": source.data_points,
+                    "metadata": source.metadata,
+                    "available": True
+                }
+        
+        state["market_sentiment"] = sentiment_data
+        
+        # Log sentiment summary
+        if sentiment_result.overall_sentiment_signal:
+            sentiment_type = sentiment_result.overall_sentiment_signal.sentiment.value
+            confidence = sentiment_result.overall_sentiment_signal.confidence
+            print(f"📊 Market sentiment: {sentiment_type} (confidence: {confidence:.2f})")
+        else:
+            print("📊 Market sentiment gathered (no overall signal)")
+        
+    except Exception as e:
+        state["market_sentiment"] = {
+            "error": f"Sentiment analysis failed: {str(e)}",
+            "overall_sentiment_score": None,
+            "overall_sentiment_signal": None,
+            "sources": {}
+        }
+        print(f"❌ Market sentiment error: {e}")
+    
     return state
 
 def gather_options_flow(state: TradeDecisionState) -> TradeDecisionState:
