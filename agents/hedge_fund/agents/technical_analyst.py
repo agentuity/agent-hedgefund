@@ -5,12 +5,7 @@ import numpy as np
 import yfinance as yf
 from pycoingecko import CoinGeckoAPI
 
-# Placeholder for actual data fetching libraries
-# For stocks: import yfinance as yf
-# For crypto: from pycoingecko import CoinGeckoAPI (or import requests)
-
 # --- Pydantic Schemas ---
-
 class AssetType(str, Enum):
     STOCK = "STOCK"
     CRYPTO = "CRYPTO"
@@ -556,7 +551,6 @@ def fetch_stock_data(symbol: str, timeframe: str, period_str: str = "1y") -> Opt
         print(f"Fetching stock data for {symbol}, timeframe {timeframe}, period {period_str}")
         
         ticker = yf.Ticker(symbol)
-        # Fetch historical data
         data = ticker.history(period=period_str, interval=timeframe)
         
         if data.empty:

@@ -16,7 +16,6 @@ from textblob import TextBlob
 
 from base import SentimentAnalyzer, SentimentResult, AssetType, interpret_sentiment_score
 
-
 class NewsSentimentAnalyzer(SentimentAnalyzer):
     """Analyzes sentiment from financial news articles"""
     
@@ -25,7 +24,6 @@ class NewsSentimentAnalyzer(SentimentAnalyzer):
         self.max_articles = max_articles
         self.api_key = os.getenv('NEWSAPI_KEY')
         
-        # Company name mapping for better search results
         self.company_mapping = {
             'AAPL': 'Apple Inc',
             'GOOGL': 'Google Alphabet',

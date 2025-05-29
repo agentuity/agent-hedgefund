@@ -342,17 +342,14 @@ def gather_market_sentiment(state: TradeDecisionState) -> TradeDecisionState:
             ]
         )
         
-        # Run sentiment analysis
         sentiment_result = run_market_sentiment_tool(sentiment_request)
         
-        # Extract key sentiment data
         sentiment_data = {
             "overall_sentiment_score": sentiment_result.overall_sentiment_score,
             "overall_sentiment_signal": sentiment_result.overall_sentiment_signal.model_dump() if sentiment_result.overall_sentiment_signal else None,
             "sources": {}
         }
         
-        # Process individual source results
         for source in sentiment_result.sources:
             if source.error:
                 sentiment_data["sources"][source.source] = {
@@ -370,7 +367,6 @@ def gather_market_sentiment(state: TradeDecisionState) -> TradeDecisionState:
         
         state["market_sentiment"] = sentiment_data
         
-        # Log sentiment summary
         if sentiment_result.overall_sentiment_signal:
             sentiment_type = sentiment_result.overall_sentiment_signal.sentiment.value
             confidence = sentiment_result.overall_sentiment_signal.confidence
@@ -415,10 +411,8 @@ def assess_market_context(state: TradeDecisionState) -> TradeDecisionState:
             state["market_context"] = {"error": "No current price available"}
             return state
         
-        # Calculate signal metrics
         signal_metrics = calculate_signal_metrics(tech_analysis)
         
-        # Determine market context
         market_conviction = determine_market_conviction(signal_metrics["avg_signal_strength"])
         trend_direction = determine_trend_direction(signal_metrics["trend_signals"])
         
@@ -449,6 +443,7 @@ def analyze_trade_signal(state: TradeDecisionState) -> TradeDecisionState:
         
         state["llm_analysis"] = response.content
         print("🤖 LLM analysis completed")
+        print(response.content)
         
     except Exception as e:
         state["llm_analysis"] = f"LLM analysis failed: {str(e)}"
@@ -470,22 +465,17 @@ def make_final_decision(state: TradeDecisionState) -> TradeDecisionState:
             )
             return state
         
-        # Analyze signal confluence
         confluence_data = analyze_signal_confluence(tech_analysis)
         
-        # Determine trade decision and confidence
         decision, confidence = determine_trade_decision(confluence_data)
         
-        # Create market context string
         market_context_str = f"Market conviction: {market_context.get('market_conviction', 'UNKNOWN') if market_context else 'UNKNOWN'}. " \
                            f"Trend direction: {market_context.get('trend_direction', 'UNKNOWN') if market_context else 'UNKNOWN'}. " \
                            f"Signal count: {market_context.get('signal_count', 0) if market_context else 0}"
         
-        # Create reasoning string
         reasoning = f"Signal confluence analysis: {confluence_data['buy_signals']} bullish, {confluence_data['sell_signals']} bearish signals. " \
-                   f"Average signal strength: {confluence_data['avg_strength']:.2f}. {llm_analysis[:200] if llm_analysis else ''}..."
+                   f"Average signal strength: {confluence_data['avg_strength']:.2f}. {llm_analysis}"
         
-        # Create final recommendation
         state["final_recommendation"] = TradeRecommendation(
             symbol=request.symbol,
             asset_type=request.asset_type,
@@ -568,13 +558,9 @@ def run_trade_decision_analysis(request: TradeAnalysisRequest) -> TradeRecommend
         print(f"✅ Trade decision completed: {recommendation.decision.value}")
         return recommendation
     else:
-        # Fallback recommendation
         return create_error_recommendation(request, "Workflow failed to generate recommendation")
 
-# --- Example Usage ---
-
 if __name__ == "__main__":
-    # Example trade decision analysis
     request = TradeAnalysisRequest(
         symbol="AAPL",
         asset_type=AssetType.STOCK,

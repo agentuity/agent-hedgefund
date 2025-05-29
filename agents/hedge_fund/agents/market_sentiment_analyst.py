@@ -9,8 +9,7 @@ import os
 from textblob import TextBlob
 import time
 
-# --- Pydantic Schemas (same as before) ---
-
+# --- Pydantic Schemas ---
 class AssetType(str, Enum):
     STOCK = "STOCK"
     CRYPTO = "CRYPTO"
@@ -69,13 +68,10 @@ def analyze_news_sentiment(symbol: str, lookback_days: int = 7) -> SentimentResu
                 error="NEWSAPI_KEY environment variable not set. Get free key from https://newsapi.org/"
             )
         
-        # Get company name for better search results
         company_names = get_company_name_mapping(symbol)
         
-        # Calculate date range
         from_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
         
-        # Search query - combine symbol and company name
         query = f'"{symbol}" OR "{company_names.get(symbol, symbol)}"'
         
         url = "https://newsapi.org/v2/everything"
