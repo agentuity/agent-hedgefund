@@ -24,9 +24,10 @@ def convert_asset_type(module_asset_type: AssetType) -> TradeAssetType:
     """Convert module AssetType to trade decision AssetType"""
     if module_asset_type == AssetType.CRYPTO:
         return TradeAssetType.CRYPTO
-    else:
+    elif module_asset_type == AssetType.STOCK:
         return TradeAssetType.STOCK
-
+    else:
+        raise ValueError(f"Unsupported asset type: {module_asset_type}")
 def format_trade_recommendation(recommendation: TradeRecommendation, asset_info: AssetInfo,
                                 trade_intent: TradeIntent) -> str:
     """Format the trade recommendation into a user-friendly response"""
