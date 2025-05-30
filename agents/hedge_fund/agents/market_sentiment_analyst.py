@@ -61,12 +61,11 @@ def analyze_news_sentiment(symbol: str, lookback_days: int = 7) -> SentimentResu
                 error="NEWSAPI_KEY environment variable not set. Get free key from https://newsapi.org/"
             )
         
-        company_names = get_company_name_mapping(symbol)
+        company_names = get_company_name_mapping(symbol.upper())
         
         from_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
         
         query = f'"{symbol}" OR "{company_names.get(symbol, symbol)}"'
-        
         url = "https://newsapi.org/v2/everything"
         params = {
             'q': query,
