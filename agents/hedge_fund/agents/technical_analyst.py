@@ -6,10 +6,7 @@ import yfinance as yf
 from pycoingecko import CoinGeckoAPI
 
 # --- Pydantic Schemas ---
-class AssetType(str, Enum):
-    STOCK = "STOCK"
-    CRYPTO = "CRYPTO"
-
+from agents.hedge_fund.tools.sentiment.base import AssetType
 class SignalType(str, Enum):
     BUY = "BUY"
     SELL = "SELL"
