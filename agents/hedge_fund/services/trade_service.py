@@ -51,7 +51,7 @@ class TradeService:
             recommendation = run_trade_decision_analysis(trade_request)
             return recommendation
         except Exception as e:
-            raise Exception(f"Trade analysis failed for {asset_info.symbol}: {str(e)}")
+            raise Exception(f"Trade analysis failed for {asset_info.symbol}: {str(e)}") from e
     
     def validate_trade_request(self, asset_info: AssetInfo, trade_intent: TradeIntent) -> bool:
         """
