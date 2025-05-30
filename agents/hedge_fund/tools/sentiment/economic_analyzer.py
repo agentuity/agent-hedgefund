@@ -47,7 +47,7 @@ class EconomicSentimentAnalyzer(SentimentAnalyzer):
     
     def is_available(self) -> bool:
         """Check if FRED API key is available"""
-        return self.api_key is not None
+        return bool(self.api_key)
     
     def get_required_config(self) -> List[str]:
         """Return required configuration"""
