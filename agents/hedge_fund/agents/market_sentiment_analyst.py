@@ -9,18 +9,11 @@ import os
 from textblob import TextBlob
 import time
 
-# --- Pydantic Schemas ---
-class AssetType(str, Enum):
-    STOCK = "STOCK"
-    CRYPTO = "CRYPTO"
-
-class SentimentType(str, Enum):
-    VERY_BULLISH = "VERY_BULLISH"
-    BULLISH = "BULLISH"
-    NEUTRAL = "NEUTRAL"
-    BEARISH = "BEARISH"
-    VERY_BEARISH = "VERY_BEARISH"
-
+from agents.hedge_fund.tools.sentiment.base import (
+    AssetType,
+    SentimentType,
+    SentimentSignal,
+)
 class SentimentSignal(BaseModel):
     sentiment: SentimentType
     confidence: float = Field(..., description="Confidence level from 0.0 to 1.0")
