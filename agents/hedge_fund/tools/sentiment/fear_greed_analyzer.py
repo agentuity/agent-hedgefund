@@ -10,8 +10,7 @@ import requests
 import yfinance as yf
 from typing import Dict, Any
 
-from base import SentimentAnalyzer, SentimentResult, AssetType, interpret_sentiment_score
-
+from agents.hedge_fund.tools.sentiment.base import SentimentAnalyzer, SentimentResult, AssetType, interpret_sentiment_score
 
 class FearGreedAnalyzer(SentimentAnalyzer):
     """Analyzes market fear and greed indicators"""

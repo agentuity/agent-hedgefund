@@ -8,11 +8,9 @@ from typing import List, Dict, Optional, Any
 from enum import Enum
 from datetime import datetime
 
-
 class AssetType(str, Enum):
     STOCK = "STOCK"
     CRYPTO = "CRYPTO"
-
 
 class SentimentType(str, Enum):
     VERY_BULLISH = "VERY_BULLISH"

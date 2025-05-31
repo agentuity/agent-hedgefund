@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Any, TypedDict
 from enum import Enum
 import json
 from datetime import datetime
+import logging
 
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_openai import ChatOpenAI
@@ -18,11 +19,11 @@ from agents.hedge_fund.agents.technical_analyst import (
 )
 
 from agents.hedge_fund.agents.market_sentiment_analyst import (
-    MarketSentimentRequest,
-    MarketSentimentToolOutput,
-    SentimentSourceSpec,
-    run_market_sentiment_tool
+    run_enhanced_market_sentiment_analysis,
+    AssetType as SentimentAssetType
 )
+
+logger = logging.getLogger(__name__)
 
 # --- Pydantic Schemas ---
 
@@ -51,6 +52,7 @@ class TradeRecommendation(BaseModel):
     key_factors: List[str] = Field(..., description="Key factors influencing the decision")
     market_context: str = Field(..., description="Current market context and conditions")
     entry_price_target: Optional[float] = None
+    enhanced_insights: Optional[Dict[str, Any]] = None  # LLM insights from sentiment analysis
     timestamp: datetime = Field(default_factory=datetime.now)
 
 class TradeAnalysisRequest(BaseModel):
@@ -59,6 +61,7 @@ class TradeAnalysisRequest(BaseModel):
     timeframe: str = "1d"
     current_portfolio_context: Optional[Dict[str, Any]] = None
     market_conditions: Optional[Dict[str, Any]] = None
+    use_enhanced_sentiment: bool = Field(default=True, description="Enable LLM-powered sentiment analysis")
 
 # --- LangGraph State ---
 
@@ -66,6 +69,7 @@ class TradeDecisionState(TypedDict):
     request: TradeAnalysisRequest
     technical_analysis: Optional[TechnicalAnalysisToolOutput]
     market_sentiment: Optional[Dict[str, Any]]
+    enhanced_sentiment_insights: Optional[Dict[str, Any]]  # LLM insights
     options_flow: Optional[Dict[str, Any]]
     market_context: Optional[Dict[str, Any]]
     llm_analysis: Optional[str]
@@ -201,10 +205,11 @@ def determine_trade_decision(confluence_data: Dict[str, Any]) -> tuple[TradeDeci
         return TradeDecision.NO_TRADE, ConfidenceLevel.VERY_LOW
 
 def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
-    """Create comprehensive analysis prompt for LLM"""
+    """Create comprehensive analysis prompt for LLM including enhanced sentiment insights"""
     request = state["request"]
     tech_analysis = state["technical_analysis"]
     sentiment = state["market_sentiment"]
+    enhanced_insights = state["enhanced_sentiment_insights"]
     options_flow = state["options_flow"]
     market_context = state["market_context"]
     
@@ -212,6 +217,7 @@ def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
     tech_section = []
     tech_section.append("TECHNICAL ANALYSIS:")
     
+    # Get current price directly from technical analysis
     if tech_analysis and tech_analysis.current_price:
         tech_section.append(f"Current Price: ${tech_analysis.current_price:.2f}")
     else:
@@ -241,10 +247,17 @@ def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
         overall_signal = sentiment.get("overall_sentiment_signal")
         
         if overall_signal:
-            sentiment_type = overall_signal.get("sentiment", "UNKNOWN")
-            confidence = overall_signal.get("confidence", 0.0)
-            reason = overall_signal.get("reason", "No reason provided")
-            sentiment_section.append(f"Overall: {sentiment_type} (confidence: {confidence:.2f}) - {reason}")
+            # Handle case where overall_signal is a string (sentiment value) rather than a dict
+            if isinstance(overall_signal, str):
+                sentiment_type = overall_signal
+                confidence = sentiment.get("confidence", 0.0)
+                sentiment_section.append(f"Overall: {sentiment_type} (confidence: {confidence:.2f})")
+            else:
+                # Handle case where overall_signal is a dict (shouldn't happen with current implementation)
+                sentiment_type = overall_signal.get("sentiment", "UNKNOWN")
+                confidence = overall_signal.get("confidence", 0.0)
+                reason = overall_signal.get("reason", "No reason provided")
+                sentiment_section.append(f"Overall: {sentiment_type} (confidence: {confidence:.2f}) - {reason}")
         else:
             sentiment_section.append(f"Overall Score: {overall_score:.3f}" if overall_score else "No overall sentiment")
         
@@ -253,13 +266,20 @@ def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
         for source_name, source_data in sources.items():
             if source_data.get("available"):
                 score = source_data.get("sentiment_score", 0.0)
-                signal = source_data.get("sentiment_signal", {})
+                signal = source_data.get("sentiment_signal")
                 data_points = source_data.get("data_points", 0)
                 
                 if signal:
-                    signal_type = signal.get("sentiment", "UNKNOWN")
-                    signal_conf = signal.get("confidence", 0.0)
-                    sentiment_section.append(f"- {source_name}: {signal_type} (score: {score:.3f}, confidence: {signal_conf:.2f}, {data_points} data points)")
+                    # Handle case where signal is a string
+                    if isinstance(signal, str):
+                        signal_type = signal
+                        signal_conf = source_data.get("confidence", 0.0)
+                        sentiment_section.append(f"- {source_name}: {signal_type} (score: {score:.3f}, confidence: {signal_conf:.2f}, {data_points} data points)")
+                    else:
+                        # Handle case where signal is a dict
+                        signal_type = signal.get("sentiment", "UNKNOWN")
+                        signal_conf = signal.get("confidence", 0.0)
+                        sentiment_section.append(f"- {source_name}: {signal_type} (score: {score:.3f}, confidence: {signal_conf:.2f}, {data_points} data points)")
                 else:
                     sentiment_section.append(f"- {source_name}: Score {score:.3f} ({data_points} data points)")
             else:
@@ -269,6 +289,32 @@ def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
         error_msg = sentiment.get("error", "No sentiment data available") if sentiment else "No sentiment data"
         sentiment_section.append(f"ERROR: {error_msg}")
     
+    # Build enhanced insights section
+    insights_section = []
+    if enhanced_insights:
+        insights_section.append("ENHANCED LLM SENTIMENT INSIGHTS:")
+        
+        if enhanced_insights.get("key_themes"):
+            themes = enhanced_insights["key_themes"]
+            insights_section.append(f"Key Themes: {', '.join(themes[:5])}")
+        
+        if enhanced_insights.get("market_moving_events"):
+            events = enhanced_insights["market_moving_events"]
+            insights_section.append(f"Market-Moving Events: {', '.join(events[:3])}")
+        
+        if enhanced_insights.get("risk_factors"):
+            risks = enhanced_insights["risk_factors"]
+            insights_section.append(f"Risk Factors: {', '.join(risks[:3])}")
+        
+        if enhanced_insights.get("opportunities"):
+            opportunities = enhanced_insights["opportunities"]
+            insights_section.append(f"Opportunities: {', '.join(opportunities[:3])}")
+        
+        llm_confidence = enhanced_insights.get("llm_confidence", 0.0)
+        insights_section.append(f"LLM Analysis Confidence: {llm_confidence:.2f}")
+    else:
+        insights_section.append("ENHANCED INSIGHTS: No enhanced insights available")
+    
     prompt_sections = [
         f"You are a professional hedge fund analyst making trading decisions. "
         f"Analyze the following data for {request.symbol} ({request.asset_type.value}):",
@@ -277,18 +323,21 @@ def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
         "",
         "\n".join(sentiment_section),
         "",
+        "\n".join(insights_section),
+        "",
         f"OPTIONS FLOW: {options_flow}",
         "",
         f"MARKET CONTEXT: {market_context}",
         "",
         "Based on this comprehensive analysis, provide:",
         "1. Your overall assessment of the trading opportunity",
-        "2. Key confluence factors (where technical and sentiment align)",
-        "3. Main risks and concerns",
+        "2. Key confluence factors (where technical, sentiment, and LLM insights align)",
+        "3. Main risks and concerns (integrate risk factors from enhanced insights)",
         "4. How sentiment supports or contradicts technical signals",
-        "5. Your confidence level in any potential trade",
+        "5. How the LLM-identified themes and events affect the trade thesis",
+        "6. Your confidence level in any potential trade",
         "",
-        "Be specific about WHY you would or wouldn't trade this setup. Focus on confluence of technical and sentiment signals, and risk-reward."
+        "Be specific about WHY you would or wouldn't trade this setup. Focus on confluence of technical signals, sentiment analysis, and LLM-derived insights. Consider the market-moving events and risk factors identified by the enhanced analysis."
     ]
     
     prompt = "\n".join(prompt_sections)
@@ -308,6 +357,13 @@ def create_error_recommendation(request: TradeAnalysisRequest, error_msg: str) -
         market_context="System error"
     )
 
+def convert_asset_type_for_sentiment(asset_type: AssetType) -> SentimentAssetType:
+    """Convert AssetType to SentimentAssetType"""
+    if asset_type == AssetType.CRYPTO:
+        return SentimentAssetType.CRYPTO
+    else:
+        return SentimentAssetType.STOCK
+
 # --- Node Functions ---
 
 def gather_technical_analysis(state: TradeDecisionState) -> TradeDecisionState:
@@ -317,62 +373,73 @@ def gather_technical_analysis(state: TradeDecisionState) -> TradeDecisionState:
         tech_request = create_technical_analysis_request(request)
         tech_result = run_technical_analysis_tool(tech_request)
         state["technical_analysis"] = tech_result
-        print(f"✅ Technical analysis completed for {request.symbol}")
+        logger.info(f"✅ Technical analysis completed for {request.symbol}")
         
     except Exception as e:
         state["error"] = f"Technical analysis failed: {str(e)}"
-        print(f"❌ Technical analysis error: {e}")
+        logger.error(f"❌ Technical analysis error: {e}")
     
     return state
 
 def gather_market_sentiment(state: TradeDecisionState) -> TradeDecisionState:
-    """Gather real market sentiment analysis using multiple sources"""
+    """Gather comprehensive market sentiment analysis with enhanced LLM insights"""
     try:
         request = state["request"]
         
-        # Create sentiment analysis request
-        sentiment_request = MarketSentimentRequest(
-            asset_type=request.asset_type,
+        # Convert asset type for sentiment analysis
+        sentiment_asset_type = convert_asset_type_for_sentiment(request.asset_type)
+        
+        # Use enhanced sentiment analysis with LLM
+        sentiment_result = run_enhanced_market_sentiment_analysis(
             symbol=request.symbol,
+            asset_type=sentiment_asset_type,
+            sources=["news_sentiment", "fear_greed_index", "economic_sentiment"],
             lookback_days=7,
-            sources=[
-                SentimentSourceSpec(name="news_sentiment"),
-                SentimentSourceSpec(name="fear_greed_index"),
-                SentimentSourceSpec(name="economic_sentiment")
-            ]
+            use_llm_insights=request.use_enhanced_sentiment
         )
         
-        sentiment_result = run_market_sentiment_tool(sentiment_request)
-        
+        # Store sentiment data in expected format
         sentiment_data = {
-            "overall_sentiment_score": sentiment_result.overall_sentiment_score,
-            "overall_sentiment_signal": sentiment_result.overall_sentiment_signal.model_dump() if sentiment_result.overall_sentiment_signal else None,
+            "overall_sentiment_score": sentiment_result.get("overall_sentiment_score"),
+            "overall_sentiment_signal": sentiment_result.get("overall_sentiment_signal"),
+            "confidence": sentiment_result.get("confidence", 0.0),
+            "error": sentiment_result.get("error"),
             "sources": {}
         }
         
-        for source in sentiment_result.sources:
-            if source.error:
-                sentiment_data["sources"][source.source] = {
-                    "error": source.error,
-                    "available": False
-                }
-            else:
-                sentiment_data["sources"][source.source] = {
-                    "sentiment_score": source.sentiment_score,
-                    "sentiment_signal": source.sentiment_signal.model_dump() if source.sentiment_signal else None,
-                    "data_points": source.data_points,
-                    "metadata": source.metadata,
+        # Process individual sources
+        for source in sentiment_result.get("sources", []):
+            if isinstance(source, dict):
+                source_name = source.get("source", "unknown")
+                sentiment_data["sources"][source_name] = {
+                    "sentiment_signal": source.get("sentiment"),
+                    "sentiment_score": source.get("score", 0.0),
+                    "confidence": source.get("confidence", 0.0),
+                    "data_points": source.get("data_points", 0),
+                    "metadata": source.get("metadata", {}),
                     "available": True
                 }
         
         state["market_sentiment"] = sentiment_data
         
-        if sentiment_result.overall_sentiment_signal:
-            sentiment_type = sentiment_result.overall_sentiment_signal.sentiment.value
-            confidence = sentiment_result.overall_sentiment_signal.confidence
-            print(f"📊 Market sentiment: {sentiment_type} (confidence: {confidence:.2f})")
+        # Store enhanced LLM insights separately
+        enhanced_insights = sentiment_result.get("enhanced_insights")
+        if enhanced_insights:
+            state["enhanced_sentiment_insights"] = enhanced_insights
+            logger.info(f"🧠 Enhanced sentiment insights captured:")
+            logger.info(f"  • Key themes: {enhanced_insights.get('key_themes', [])[:3]}")
+            logger.info(f"  • Market events: {enhanced_insights.get('market_moving_events', [])[:2]}")
+            logger.info(f"  • LLM confidence: {enhanced_insights.get('llm_confidence', 0.0):.2f}")
         else:
-            print("📊 Market sentiment gathered (no overall signal)")
+            state["enhanced_sentiment_insights"] = None
+        
+        # Log standard sentiment
+        overall_signal = sentiment_result.get("overall_sentiment_signal")
+        overall_confidence = sentiment_result.get("confidence", 0.0)
+        if overall_signal:
+            logger.info(f"📊 Market sentiment: {overall_signal} (confidence: {overall_confidence:.2f})")
+        else:
+            logger.info("📊 Market sentiment gathered (no overall signal)")
         
     except Exception as e:
         state["market_sentiment"] = {
@@ -381,7 +448,8 @@ def gather_market_sentiment(state: TradeDecisionState) -> TradeDecisionState:
             "overall_sentiment_signal": None,
             "sources": {}
         }
-        print(f"❌ Market sentiment error: {e}")
+        state["enhanced_sentiment_insights"] = None
+        logger.error(f"❌ Market sentiment error: {e}")
     
     return state
 
@@ -395,7 +463,7 @@ def gather_options_flow(state: TradeDecisionState) -> TradeDecisionState:
         "flow_momentum": "neutral",
         "note": "Placeholder - to be implemented with real options data"
     }
-    print("📈 Options flow gathered (placeholder)")
+    logger.info("📈 Options flow gathered (placeholder)")
     return state
 
 def assess_market_context(state: TradeDecisionState) -> TradeDecisionState:
@@ -403,12 +471,16 @@ def assess_market_context(state: TradeDecisionState) -> TradeDecisionState:
     try:
         tech_analysis = state["technical_analysis"]
         
-        if not tech_analysis or tech_analysis.data_fetch_error:
-            state["market_context"] = {"error": "Cannot assess market context without technical data"}
+        # Check if technical analysis is available and successful
+        if not tech_analysis or tech_analysis.overall_signal.value == "UNCLEAR":
+            state["market_context"] = {"error": "Cannot assess market context without valid technical data"}
             return state
         
-        if not tech_analysis.current_price:
-            state["market_context"] = {"error": "No current price available"}
+        # Use the current_price field from technical analysis
+        current_price = tech_analysis.current_price
+        
+        if not current_price:
+            state["market_context"] = {"error": "No current price available in technical analysis"}
             return state
         
         signal_metrics = calculate_signal_metrics(tech_analysis)
@@ -419,16 +491,16 @@ def assess_market_context(state: TradeDecisionState) -> TradeDecisionState:
         state["market_context"] = {
             "market_conviction": market_conviction,
             "average_signal_strength": signal_metrics["avg_signal_strength"],
-            "current_price": tech_analysis.current_price,
+            "current_price": current_price,
             "signal_count": signal_metrics["signal_count"],
             "trend_direction": trend_direction
         }
         
-        print(f"📊 Market context assessed: {market_conviction} conviction, {trend_direction} trend")
+        logger.info(f"📊 Market context assessed: {market_conviction} conviction, {trend_direction} trend")
         
     except Exception as e:
         state["market_context"] = {"error": f"Market context assessment failed: {str(e)}"}
-        print(f"❌ Market context error: {e}")
+        logger.error(f"❌ Market context error: {e}")
     
     return state
 
@@ -442,26 +514,28 @@ def analyze_trade_signal(state: TradeDecisionState) -> TradeDecisionState:
         response = llm.invoke(messages)
         
         state["llm_analysis"] = response.content
-        print("🤖 LLM analysis completed")
-        print(response.content)
+        logger.info("🤖 LLM analysis completed")
+        logger.info(response.content)
         
     except Exception as e:
         state["llm_analysis"] = f"LLM analysis failed: {str(e)}"
-        print(f"❌ LLM analysis error: {e}")
+        logger.error(f"❌ LLM analysis error: {e}")
     
     return state
 
 def make_final_decision(state: TradeDecisionState) -> TradeDecisionState:
-    """Make the final trade recommendation based on all analysis"""
+    """Make the final trade recommendation based on all analysis including enhanced insights"""
     try:
         request = state["request"]
         tech_analysis = state["technical_analysis"]
         market_context = state["market_context"]
+        enhanced_insights = state["enhanced_sentiment_insights"]
         llm_analysis = state["llm_analysis"]
         
-        if not tech_analysis or tech_analysis.data_fetch_error:
+        # Check if technical analysis is available and successful
+        if not tech_analysis or tech_analysis.overall_signal.value == "UNCLEAR":
             state["final_recommendation"] = create_error_recommendation(
-                request, "Cannot make trade decision without technical data"
+                request, "Cannot make trade decision without valid technical data"
             )
             return state
         
@@ -473,8 +547,27 @@ def make_final_decision(state: TradeDecisionState) -> TradeDecisionState:
                            f"Trend direction: {market_context.get('trend_direction', 'UNKNOWN') if market_context else 'UNKNOWN'}. " \
                            f"Signal count: {market_context.get('signal_count', 0) if market_context else 0}"
         
-        reasoning = f"Signal confluence analysis: {confluence_data['buy_signals']} bullish, {confluence_data['sell_signals']} bearish signals. " \
-                   f"Average signal strength: {confluence_data['avg_strength']:.2f}. {llm_analysis}"
+        # Enhanced reasoning including LLM insights
+        base_reasoning = f"Signal confluence analysis: {confluence_data['buy_signals']} bullish, {confluence_data['sell_signals']} bearish signals. " \
+                        f"Average signal strength: {confluence_data['avg_strength']:.2f}. "
+        
+        # Add enhanced insights to reasoning if available
+        if enhanced_insights:
+            insights_summary = []
+            if enhanced_insights.get('key_themes'):
+                insights_summary.append(f"Key market themes: {', '.join(enhanced_insights['key_themes'][:3])}")
+            if enhanced_insights.get('market_moving_events'):
+                insights_summary.append(f"Market events: {', '.join(enhanced_insights['market_moving_events'][:2])}")
+            if enhanced_insights.get('risk_factors'):
+                insights_summary.append(f"Risk factors: {', '.join(enhanced_insights['risk_factors'][:2])}")
+            
+            enhanced_reasoning = f"Enhanced insights: {'. '.join(insights_summary)}. "
+            reasoning = base_reasoning + enhanced_reasoning + (llm_analysis or "")
+        else:
+            reasoning = base_reasoning + (llm_analysis or "")
+        
+        # Get current price from market context or use None as fallback
+        entry_price = market_context.get('current_price') if market_context else None
         
         state["final_recommendation"] = TradeRecommendation(
             symbol=request.symbol,
@@ -485,17 +578,20 @@ def make_final_decision(state: TradeDecisionState) -> TradeDecisionState:
             reasoning=reasoning,
             key_factors=confluence_data["key_factors"],
             market_context=market_context_str,
-            entry_price_target=tech_analysis.current_price
+            entry_price_target=entry_price,
+            enhanced_insights=enhanced_insights  # Include full enhanced insights
         )
         
-        print(f"🎯 Final decision: {decision.value} with {confidence.value} confidence")
+        logger.info(f"🎯 Final decision: {decision.value} with {confidence.value} confidence")
+        if enhanced_insights:
+            logger.info(f"🧠 Enhanced insights included in recommendation")
         
     except Exception as e:
         state["final_recommendation"] = create_error_recommendation(
             request, f"Decision making failed: {str(e)}"
         )
         state["error"] = f"Final decision failed: {str(e)}"
-        print(f"❌ Final decision error: {e}")
+        logger.error(f"❌ Final decision error: {e}")
     
     return state
 
@@ -530,7 +626,7 @@ def create_trade_decision_workflow() -> StateGraph:
 
 def run_trade_decision_analysis(request: TradeAnalysisRequest) -> TradeRecommendation:
     """Run the complete trade decision analysis workflow"""
-    print(f"🚀 Starting trade decision analysis for {request.symbol}")
+    logger.info(f"🚀 Starting trade decision analysis for {request.symbol}")
     
     # Create workflow
     workflow = create_trade_decision_workflow()
@@ -540,6 +636,7 @@ def run_trade_decision_analysis(request: TradeAnalysisRequest) -> TradeRecommend
         "request": request,
         "technical_analysis": None,
         "market_sentiment": None,
+        "enhanced_sentiment_insights": None,  # Include enhanced insights
         "options_flow": None,
         "market_context": None,
         "llm_analysis": None,
@@ -551,11 +648,11 @@ def run_trade_decision_analysis(request: TradeAnalysisRequest) -> TradeRecommend
     final_state = workflow.invoke(initial_state)
     
     if final_state.get("error"):
-        print(f"❌ Workflow error: {final_state['error']}")
+        logger.error(f"❌ Workflow error: {final_state['error']}")
     
     recommendation = final_state.get("final_recommendation")
     if recommendation:
-        print(f"✅ Trade decision completed: {recommendation.decision.value}")
+        logger.info(f"✅ Trade decision completed: {recommendation.decision.value}")
         return recommendation
     else:
         return create_error_recommendation(request, "Workflow failed to generate recommendation")
@@ -567,10 +664,10 @@ if __name__ == "__main__":
         timeframe="1d"
     )
     
-    print("=== TRADE DECISION ANALYSIS ===")
+    logger.info("=== TRADE DECISION ANALYSIS ===")
     recommendation = run_trade_decision_analysis(request)
-    print("\n=== FINAL RECOMMENDATION ===")
-    print(recommendation.model_dump_json(indent=2))
+    logger.info("\n=== FINAL RECOMMENDATION ===")
+    logger.info(recommendation.model_dump_json(indent=2))
     
     # Example crypto analysis
     crypto_request = TradeAnalysisRequest(
@@ -579,7 +676,7 @@ if __name__ == "__main__":
         timeframe="1d"
     )
     
-    print("\n\n=== CRYPTO TRADE DECISION ANALYSIS ===")
+    logger.info("\n\n=== CRYPTO TRADE DECISION ANALYSIS ===")
     crypto_recommendation = run_trade_decision_analysis(crypto_request)
-    print("\n=== CRYPTO FINAL RECOMMENDATION ===")
-    print(crypto_recommendation.model_dump_json(indent=2)) 
+    logger.info("\n=== CRYPTO FINAL RECOMMENDATION ===")
+    logger.info(crypto_recommendation.model_dump_json(indent=2)) 

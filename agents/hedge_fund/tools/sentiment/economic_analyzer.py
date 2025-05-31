@@ -9,7 +9,7 @@ import os
 import requests
 import time
 from typing import List, Dict, Any
-from base import SentimentAnalyzer, SentimentResult, AssetType, interpret_sentiment_score
+from agents.hedge_fund.tools.sentiment.base import SentimentAnalyzer, SentimentResult, AssetType, interpret_sentiment_score
 
 
 class EconomicSentimentAnalyzer(SentimentAnalyzer):

@@ -5,7 +5,7 @@ This package provides modular sentiment analysis capabilities for financial mark
 Each sentiment source is implemented as a separate module following the SentimentAnalyzer interface.
 """
 
-from .base import (
+from agents.hedge_fund.tools.sentiment.base import (
     AssetType,
     SentimentType,
     SentimentSignal,

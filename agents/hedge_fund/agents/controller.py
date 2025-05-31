@@ -1,0 +1,162 @@
+"""
+LangGraph Controller for Hedge Fund Agent
+
+Streamlined controller that orchestrates the workflow using specialized node modules.
+Each node is now in its own file for better maintainability.
+"""
+
+from typing import Dict, List, Optional, Any, TypedDict
+import logging
+
+from langgraph.graph import StateGraph, START, END
+
+from agents.hedge_fund.models import NextAction, HedgeFundState
+
+from agents.hedge_fund.nodes import (
+    parse_query_node, search_asset_node, analyze_trade_node,
+    format_response_node, format_error_node, route_based_on_next_action
+)
+
+from agents.hedge_fund.agents.response_formatter_agent import FormattedResponse
+
+logger = logging.getLogger(__name__)
+
+# --- Main Workflow Creation ---
+
+def create_hedge_fund_workflow() -> StateGraph:
+    """Create the main LangGraph workflow for hedge fund analysis"""
+    
+    workflow = StateGraph(HedgeFundState)
+    
+    # Add nodes (imported from specialized modules)
+    workflow.add_node("parse_query", parse_query_node)
+    workflow.add_node("search_asset", search_asset_node)
+    workflow.add_node("analyze_trade", analyze_trade_node)
+    workflow.add_node("format_response", format_response_node)
+    workflow.add_node("format_error", format_error_node)
+    
+    # Set entry point
+    workflow.set_entry_point("parse_query")
+    
+    # Add conditional routing (using universal routing function)
+    workflow.add_conditional_edges(
+        "parse_query",
+        route_based_on_next_action,
+        {
+            "search_asset": "search_asset",
+            "format_response": "format_response",
+            "format_error": "format_error"
+        }
+    )
+    
+    workflow.add_conditional_edges(
+        "search_asset",
+        route_based_on_next_action,
+        {
+            "analyze_trade": "analyze_trade",
+            "format_response": "format_response",
+            "format_error": "format_error"
+        }
+    )
+    
+    workflow.add_conditional_edges(
+        "analyze_trade", 
+        route_based_on_next_action,
+        {
+            "format_response": "format_response",
+            "format_error": "format_error"
+            # Future: "assess_risk": "assess_risk"
+        }
+    )
+    
+    # All formatting paths lead to END
+    workflow.add_edge("format_response", END)
+    workflow.add_edge("format_error", END)
+    
+    return workflow.compile()
+
+# --- Main Controller Function ---
+
+def run_hedge_fund_controller(user_query: str, context: Optional[Dict[str, Any]] = None) -> str:
+    """
+    Main controller function that orchestrates the hedge fund analysis workflow
+    
+    Args:
+        user_query: The user's query/request
+        context: Optional context (user portfolio, risk profile, preferences, etc.)
+        
+    Returns:
+        Formatted response string
+    """
+    
+    logger.info(f"🚀 Starting hedge fund analysis workflow")
+    logger.info(f"📝 User query: {user_query}")
+    
+    # Create workflow with specialized nodes
+    workflow = create_hedge_fund_workflow()
+    
+    # Initialize state
+    initial_state: HedgeFundState = {
+        "user_query": user_query,
+        "user_context": context,
+        "parsed_action": None,
+        "asset_search_result": None,
+        "trade_recommendation": None,
+        "formatted_response": None,
+        "next_action": None,
+        "response_ready": False,
+        "error": None,
+        "debug_info": None
+    }
+    
+    # Run workflow
+    try:
+        final_state = workflow.invoke(initial_state)
+        
+        if final_state.get("error"):
+            logger.error(f"❌ Workflow completed with error: {final_state['error']}")
+        else:
+            logger.info(f"✅ Workflow completed successfully")
+        
+        # Extract formatted response
+        formatted_response = final_state.get("formatted_response")
+        if formatted_response:
+            return formatted_response.content
+        else:
+            return "Sorry, I couldn't process your request."
+        
+    except Exception as e:
+        logger.error(f"❌ Workflow execution failed: {e}")
+        return f"Sorry, I encountered an unexpected error: {str(e)}. Please try again."
+
+# --- Example Usage ---
+if __name__ == "__main__":
+    test_queries = [
+        "Should I buy Apple stock?",
+        "I own 100 shares of Tesla, should I buy more?",
+        "Is my portfolio too risky with 50% tech stocks?",
+        "How is Bitcoin doing today?",
+        "What is RSI?",
+        "AAPL vs MSFT which is better?",
+        "How do I cook pasta?"
+    ]
+    
+    for query in test_queries:
+        print(f"\n{'='*80}")
+        print(f"Testing Query: {query}")
+        print(f"{'='*80}")
+        
+        try:
+            response = run_hedge_fund_controller(query)
+            print(response)
+        except Exception as e:
+            print(f"❌ Error: {e}")
+        
+        print(f"\n{'-'*40}")
+        print("✅ Test completed")
+        
+    print(f"\n🎉 **Modular Architecture Testing Complete!**")
+    print("✅ Streamlined controller with specialized node modules")
+    print("✅ Clean separation of concerns across files")  
+    print("✅ Enhanced maintainability and readability")
+    print("✅ Ready for future Risk Manager and Portfolio Manager nodes")
