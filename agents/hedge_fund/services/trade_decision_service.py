@@ -10,7 +10,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
 
-from agents.hedge_fund.agents.technical_analyst import (
+from agents.hedge_fund.services.technical_analyst import (
     TechnicalAnalysisRequest, 
     TechnicalAnalysisToolOutput,
     run_technical_analysis_tool,
@@ -18,7 +18,7 @@ from agents.hedge_fund.agents.technical_analyst import (
     IndicatorSpec
 )
 
-from agents.hedge_fund.agents.market_sentiment_analyst import (
+from agents.hedge_fund.services.market_sentiment_analyst import (
     run_enhanced_market_sentiment_analysis,
     AssetType as SentimentAssetType
 )

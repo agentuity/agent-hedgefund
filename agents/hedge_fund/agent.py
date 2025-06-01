@@ -10,7 +10,7 @@ Clean, simple, single responsibility: networking only.
 from agentuity import AgentRequest, AgentResponse, AgentContext
 
 # Import the new controller
-from agents.hedge_fund.agents.controller import run_hedge_fund_controller
+from agents.hedge_fund.services.controller import run_hedge_fund_controller
 
 async def run(request: AgentRequest, response: AgentResponse, context: AgentContext):
     """

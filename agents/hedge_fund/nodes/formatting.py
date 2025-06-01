@@ -9,7 +9,7 @@ import logging
 
 from agents.hedge_fund.models import NextAction, HedgeFundState, ParsedAction, IntentType
 
-from agents.hedge_fund.agents.response_formatter_agent import (
+from agents.hedge_fund.services.response_formatter_agent import (
     format_response, get_response_summary, is_actionable_response, FormattedResponse
 )
 

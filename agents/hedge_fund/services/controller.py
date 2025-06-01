@@ -17,7 +17,7 @@ from agents.hedge_fund.nodes import (
     format_response_node, format_error_node, route_based_on_next_action
 )
 
-from agents.hedge_fund.agents.response_formatter_agent import FormattedResponse
+from agents.hedge_fund.services.response_formatter_agent import FormattedResponse
 
 logger = logging.getLogger(__name__)
 

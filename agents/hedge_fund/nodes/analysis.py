@@ -9,7 +9,7 @@ import logging
 
 from agents.hedge_fund.models import NextAction, HedgeFundState
 
-from agents.hedge_fund.agents.trade_decision_agent import (
+from agents.hedge_fund.services.trade_decision_agent import (
     TradeAnalysisRequest, run_trade_decision_analysis,
     AssetType as TradeAssetType
 )

@@ -11,7 +11,7 @@ import logging
 from agents.hedge_fund.models import NextAction, HedgeFundState
 
 # Import specialized agents using full paths from root
-from agents.hedge_fund.agents.asset_search_agent import (
+from agents.hedge_fund.services.asset_search_agent import (
     search_and_validate_asset, is_tradeable_asset, get_asset_summary
 )
 

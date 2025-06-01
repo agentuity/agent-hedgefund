@@ -11,9 +11,9 @@ import logging
 
 from pydantic import BaseModel, Field
 
-from agents.hedge_fund.agents.trade_decision_agent import TradeRecommendation
+from agents.hedge_fund.services.trade_decision_agent import TradeRecommendation
 from agents.hedge_fund.tools.asset_search import AssetInfo
-from agents.hedge_fund.agents.asset_search_agent import AssetSearchResult
+from agents.hedge_fund.services.asset_search_agent import AssetSearchResult
 
 from agents.hedge_fund.models import ParsedAction, IntentType, TradeDirection
 

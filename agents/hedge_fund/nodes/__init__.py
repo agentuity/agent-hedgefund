@@ -1,5 +1,5 @@
 """
-Nodes Package for Hedge Fund Agent
+LangGraphNodes Package for Hedge Fund Agent
 
 Contains specialized node functions for the LangGraph workflow.
 Each module handles a specific phase of the analysis pipeline.
