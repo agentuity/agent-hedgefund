@@ -62,6 +62,7 @@ class TradeAnalysisRequest(BaseModel):
     current_portfolio_context: Optional[Dict[str, Any]] = None
     market_conditions: Optional[Dict[str, Any]] = None
     use_enhanced_sentiment: bool = Field(default=True, description="Enable LLM-powered sentiment analysis")
+    parsed_action: Optional[Any] = Field(default=None, description="ParsedAction containing user risk tolerance and intent")
 
 # --- LangGraph State ---
 
@@ -182,27 +183,128 @@ def analyze_signal_confluence(tech_analysis: TechnicalAnalysisToolOutput) -> Dic
         "key_factors": key_factors[:5]  # Top 5 factors
     }
 
-def determine_trade_decision(confluence_data: Dict[str, Any]) -> tuple[TradeDecision, ConfidenceLevel]:
-    """Determine trade decision and confidence based on confluence analysis"""
+def determine_trade_decision(confluence_data: Dict[str, Any], parsed_action: Optional[Any] = None) -> tuple[TradeDecision, ConfidenceLevel]:
+    """Determine trade decision and confidence based on confluence analysis and user risk tolerance from ParsedAction"""
     buy_signals = confluence_data["buy_signals"]
     sell_signals = confluence_data["sell_signals"]
     confluence_score = confluence_data["confluence_score"]
     
-    # Determine decision based on confluence
-    if buy_signals >= 3 and confluence_score > 0.6:
-        if confluence_score > 0.8:
+    # Dynamic thresholds based on ParsedAction risk indicators
+    min_signals_required, min_confluence_score = _calculate_dynamic_thresholds(parsed_action)
+    
+    logger.info(f"🎯 Trade decision with dynamic thresholds:")
+    logger.info(f"   📊 Signals: BUY={buy_signals}, SELL={sell_signals}, confluence={confluence_score:.2f}")
+    logger.info(f"   🎚️ Thresholds: min_signals={min_signals_required}, min_confluence={min_confluence_score:.2f}")
+    
+    # Determine decision based on dynamic confluence thresholds
+    if buy_signals >= min_signals_required and confluence_score > min_confluence_score:
+        if confluence_score > (min_confluence_score + 0.2):  # High confidence threshold
             return TradeDecision.STRONG_BUY, ConfidenceLevel.HIGH
         else:
             return TradeDecision.BUY, ConfidenceLevel.MEDIUM
-    elif sell_signals >= 3 and confluence_score > 0.6:
-        if confluence_score > 0.8:
+    elif sell_signals >= min_signals_required and confluence_score > min_confluence_score:
+        if confluence_score > (min_confluence_score + 0.2):  # High confidence threshold
             return TradeDecision.STRONG_SELL, ConfidenceLevel.HIGH
         else:
             return TradeDecision.SELL, ConfidenceLevel.MEDIUM
     elif abs(buy_signals - sell_signals) <= 1:
+        # For risk-tolerant users, be more decisive even with mixed signals
+        if parsed_action and _is_risk_tolerant_user(parsed_action):
+            if buy_signals > sell_signals:
+                logger.info("🔥 Risk-tolerant user: choosing BUY on mixed signals")
+                return TradeDecision.BUY, ConfidenceLevel.LOW
+            elif sell_signals > buy_signals:
+                logger.info("🔥 Risk-tolerant user: choosing SELL on mixed signals")
+                return TradeDecision.SELL, ConfidenceLevel.LOW
         return TradeDecision.HOLD, ConfidenceLevel.LOW
     else:
         return TradeDecision.NO_TRADE, ConfidenceLevel.VERY_LOW
+
+def _calculate_dynamic_thresholds(parsed_action: Optional[Any]) -> tuple[int, float]:
+    """Calculate dynamic thresholds based on ParsedAction risk indicators"""
+    
+    # Default conservative thresholds (current behavior)
+    min_signals = 3
+    min_confluence = 0.6
+    
+    if not parsed_action:
+        logger.info("📝 No ParsedAction - using default thresholds")
+        return min_signals, min_confluence
+    
+    # Extract key risk indicators from ParsedAction
+    trade_intent = getattr(parsed_action, 'trade_intent_strength', 0.0)
+    risk_concern = getattr(parsed_action, 'risk_concern_level', 0.5)
+    risk_tolerance = getattr(parsed_action, 'risk_tolerance_hint', None)
+    urgency = getattr(parsed_action, 'urgency_level', 0.0)
+    
+    # Start with base adjustments based on numerical indicators
+    # High trade intent = more aggressive
+    intent_adjustment = trade_intent * 0.3  # 0.0 to 0.3 reduction
+    
+    # High risk concern = more conservative  
+    concern_adjustment = risk_concern * 0.2  # 0.0 to 0.2 increase
+    
+    # High urgency = slightly more aggressive
+    urgency_adjustment = urgency * 0.1  # 0.0 to 0.1 reduction
+    
+    # Apply numerical adjustments
+    confluence_adjustment = -intent_adjustment + concern_adjustment - urgency_adjustment
+    min_confluence = max(0.2, min(0.8, min_confluence + confluence_adjustment))
+    
+    # Signal count adjustments based on risk tolerance
+    if risk_tolerance:
+        risk_hint = risk_tolerance.lower()
+        if any(word in risk_hint for word in ["aggressive", "risky", "high risk", "willing to lose", "yolo", "gamble"]):
+            logger.info("🔥 AGGRESSIVE trader detected!")
+            min_signals = 1
+            min_confluence = max(0.25, min_confluence - 0.3)
+        elif any(word in risk_hint for word in ["moderate", "some risk", "medium risk"]):
+            logger.info("📈 MODERATE risk trader detected")
+            min_signals = 2  
+            min_confluence = max(0.35, min_confluence - 0.2)
+        elif any(word in risk_hint for word in ["conservative", "safe", "low risk", "cautious"]):
+            logger.info("🛡️ CONSERVATIVE trader detected")
+            min_signals = 4
+            min_confluence = min(0.75, min_confluence + 0.1)
+    
+    # Extreme combinations
+    if trade_intent > 0.8 and risk_concern < 0.2:
+        logger.info("🚀 HIGH intent + LOW concern = VERY AGGRESSIVE!")
+        min_signals = 1
+        min_confluence = max(0.2, min_confluence - 0.4)
+    elif trade_intent < 0.3 and risk_concern > 0.7:
+        logger.info("🐌 LOW intent + HIGH concern = VERY CONSERVATIVE!")
+        min_signals = 4
+        min_confluence = min(0.8, min_confluence + 0.2)
+    
+    # Ensure reasonable bounds
+    min_signals = max(1, min(5, min_signals))
+    min_confluence = max(0.15, min(0.85, min_confluence))
+    
+    logger.info(f"🎚️ Risk-adjusted thresholds calculated:")
+    logger.info(f"   📊 Trade intent: {trade_intent:.2f}, Risk concern: {risk_concern:.2f}")
+    logger.info(f"   🎯 Final: {min_signals} signals, {min_confluence:.2f} confluence")
+    
+    return min_signals, min_confluence
+
+def _is_risk_tolerant_user(parsed_action: Any) -> bool:
+    """Check if user is risk tolerant based on ParsedAction indicators"""
+    
+    trade_intent = getattr(parsed_action, 'trade_intent_strength', 0.0)
+    risk_concern = getattr(parsed_action, 'risk_concern_level', 0.5)
+    risk_tolerance = getattr(parsed_action, 'risk_tolerance_hint', None)
+    
+    # Explicit aggressive language
+    if risk_tolerance:
+        hint_lower = risk_tolerance.lower()
+        if any(word in hint_lower for word in ["aggressive", "risky", "willing to lose", "yolo", "gamble"]):
+            return True
+    
+    # High intent + low concern = risk tolerant
+    if trade_intent > 0.6 and risk_concern < 0.4:
+        return True
+    
+    return False
 
 def create_llm_analysis_prompt(state: TradeDecisionState) -> str:
     """Create comprehensive analysis prompt for LLM including enhanced sentiment insights"""
@@ -541,7 +643,7 @@ def make_final_decision(state: TradeDecisionState) -> TradeDecisionState:
         
         confluence_data = analyze_signal_confluence(tech_analysis)
         
-        decision, confidence = determine_trade_decision(confluence_data)
+        decision, confidence = determine_trade_decision(confluence_data, request.parsed_action)
         
         market_context_str = f"Market conviction: {market_context.get('market_conviction', 'UNKNOWN') if market_context else 'UNKNOWN'}. " \
                            f"Trend direction: {market_context.get('trend_direction', 'UNKNOWN') if market_context else 'UNKNOWN'}. " \

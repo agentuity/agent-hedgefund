@@ -11,9 +11,9 @@ import logging
 
 from pydantic import BaseModel, Field
 
-from agents.hedge_fund.services.trade_decision_agent import TradeRecommendation
+from agents.hedge_fund.services.trade_decision_service import TradeRecommendation
 from agents.hedge_fund.tools.asset_search import AssetInfo
-from agents.hedge_fund.services.asset_search_agent import AssetSearchResult
+from agents.hedge_fund.services.asset_search_service import AssetSearchResult
 
 from agents.hedge_fund.models import ParsedAction, IntentType, TradeDirection
 
@@ -33,7 +33,8 @@ class FormattedResponse(BaseModel):
 def format_trade_recommendation_response(
     recommendation: TradeRecommendation, 
     asset_info: AssetInfo, 
-    parsed_action: ParsedAction
+    parsed_action: ParsedAction,
+    risk_assessment = None  # RiskAssessment object when available
 ) -> FormattedResponse:
     """Format a complete trade recommendation response"""
     
@@ -69,6 +70,38 @@ def format_trade_recommendation_response(
         
         if asset_info.exchange:
             response_parts.append(f"🏢 **Exchange:** {asset_info.exchange}")
+        
+        # Add risk assessment if available
+        if risk_assessment:
+            response_parts.extend(["", "🛡️ **Risk Assessment:**"])
+            
+            # Risk level with emoji
+            risk_emoji = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠", "VERY_HIGH": "🔴"}
+            response_parts.append(f"{risk_emoji.get(risk_assessment.risk_level, '⚫')} **Risk Level:** {risk_assessment.risk_level}")
+            
+            # Position size recommendation
+            if risk_assessment.position_size_recommendation:
+                response_parts.append(f"💼 **Recommended Position Size:** {risk_assessment.position_size_recommendation:.1%} of portfolio")
+            
+            # Warnings if any
+            if risk_assessment.warnings:
+                response_parts.append("")
+                for warning in risk_assessment.warnings:
+                    response_parts.append(warning)
+            
+            # Risk recommendations
+            if risk_assessment.recommendations:
+                response_parts.append("")
+                response_parts.append("**Risk Recommendations:**")
+                for rec in risk_assessment.recommendations:
+                    response_parts.append(f"• {rec}")
+            
+            # Should proceed indicator
+            if not risk_assessment.should_proceed:
+                response_parts.extend([
+                    "",
+                    "🚨 **⚠️ CAUTION:** Consider avoiding this trade due to high risk factors"
+                ])
         
         # Add key factors
         response_parts.extend(["", "**Key Factors:**"])
@@ -108,6 +141,13 @@ def format_trade_recommendation_response(
                     "**Portfolio Context:** Based on your existing positions"
                 ])
         
+        # Add risk reasoning if available
+        if risk_assessment and risk_assessment.reasoning:
+            response_parts.extend([
+                "",
+                f"**Risk Analysis:** {risk_assessment.reasoning}"
+            ])
+        
         # Add timestamp
         response_parts.extend([
             "",
@@ -116,16 +156,28 @@ def format_trade_recommendation_response(
         
         content = "\n".join(filter(None, response_parts))
         
+        # Enhanced metadata with risk info
+        metadata = {
+            "symbol": symbol,
+            "decision": decision,
+            "confidence_score": confidence_score,
+            "asset_type": asset_info.asset_type.value,
+            "intent_type": parsed_action.intent_type.value
+        }
+        
+        # Add risk metadata if available
+        if risk_assessment:
+            metadata.update({
+                "risk_level": risk_assessment.risk_level,
+                "risk_score": risk_assessment.overall_risk_score,
+                "should_proceed": risk_assessment.should_proceed,
+                "position_size_rec": risk_assessment.position_size_recommendation
+            })
+        
         return FormattedResponse(
             content=content,
             response_type="trade_recommendation",
-            metadata={
-                "symbol": symbol,
-                "decision": decision,
-                "confidence_score": confidence_score,
-                "asset_type": asset_info.asset_type.value,
-                "intent_type": parsed_action.intent_type.value
-            }
+            metadata=metadata
         )
         
     except Exception as e:
@@ -283,6 +335,7 @@ def format_response(
     parsed_action: ParsedAction,
     asset_search_result: Optional[AssetSearchResult] = None,
     trade_recommendation: Optional[TradeRecommendation] = None,
+    risk_assessment = None,  # RiskAssessment object when available
     error_message: Optional[str] = None
 ) -> FormattedResponse:
     """
@@ -292,6 +345,7 @@ def format_response(
         parsed_action: Enhanced parsed action information
         asset_search_result: Asset search results if available
         trade_recommendation: Trade recommendation if available
+        risk_assessment: Risk assessment if available
         error_message: Error message if something failed
         
     Returns:
@@ -330,7 +384,8 @@ def format_response(
             return format_trade_recommendation_response(
                 trade_recommendation, 
                 asset_search_result.asset_info, 
-                parsed_action
+                parsed_action,
+                risk_assessment  # Pass risk assessment if available
             )
         
         elif parsed_action.intent_type in [IntentType.PORTFOLIO_REVIEW, IntentType.RISK_ASSESSMENT]:
@@ -372,9 +427,7 @@ def is_actionable_response(formatted_response: FormattedResponse) -> bool:
 # --- Example Usage ---
 
 if __name__ == "__main__":
-    # Example of how the formatter would be used
-    # Note: query_parser_agent was removed - would use action_parser instead
-    
+
     # Test different query types
     test_queries = [
         "Should I buy Apple stock?",

@@ -51,6 +51,9 @@ class HedgeFundState(TypedDict):
     # Analysis results  
     trade_recommendation: Optional[Any]  # Will be TradeRecommendation once imported
     
+    # Risk assessment results
+    risk_assessment: Optional[Any]  # Will be RiskAssessment once imported
+    
     # Final output
     formatted_response: Optional[Any]  # Will be FormattedResponse once imported
     

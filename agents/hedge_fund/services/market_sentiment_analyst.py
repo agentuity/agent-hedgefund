@@ -146,7 +146,6 @@ def run_enhanced_market_sentiment_analysis(
     use_llm_insights: bool = True
 ) -> Dict[str, Any]:
     """
-    Legacy function for trade_decision_agent compatibility
     Returns sentiment analysis in dictionary format
     """
     analysis = analyze_market_sentiment(
@@ -157,7 +156,6 @@ def run_enhanced_market_sentiment_analysis(
         use_llm_insights=use_llm_insights
     )
     
-    # Convert to dictionary format expected by trade_decision_agent
     return {
         "status": "error" if analysis.error else "success",
         "symbol": analysis.symbol,

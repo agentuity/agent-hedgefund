@@ -9,7 +9,7 @@ import logging
 
 from agents.hedge_fund.models import NextAction, HedgeFundState
 
-from agents.hedge_fund.services.trade_decision_agent import (
+from agents.hedge_fund.services.trade_decision_service import (
     TradeAnalysisRequest, run_trade_decision_analysis,
     AssetType as TradeAssetType
 )
@@ -49,7 +49,8 @@ def analyze_trade_node(state: HedgeFundState) -> HedgeFundState:
             timeframe="1d",
             use_enhanced_sentiment=True,  # Enable LLM-powered sentiment analysis
             current_portfolio_context=state.get("user_context"),
-            market_conditions=None  # Could be enhanced with market data
+            market_conditions=None,
+            parsed_action=parsed_action
         )
         
         # Run the existing trade decision analysis
@@ -58,10 +59,12 @@ def analyze_trade_node(state: HedgeFundState) -> HedgeFundState:
         
         logger.info(f"✅ Trade analysis complete: {recommendation.decision.value} with {recommendation.confidence.value} confidence")
         
-        # Check if we need risk management based on extracted information
-        if parsed_action.risk_concern_level > 0.6:
-            state["next_action"] = NextAction.ASSESS_RISK  # Future: route to risk manager
+        # ENHANCED ROUTING: Check if we should route to risk manager
+        if _should_route_to_risk_manager(parsed_action, recommendation):
+            logger.info("🛡️ Routing to risk manager for trade intent assessment")
+            state["next_action"] = NextAction.ASSESS_RISK
         elif parsed_action.portfolio_context_strength > 0.7:
+            logger.info("📊 Strong portfolio context - future portfolio manager route")
             state["next_action"] = NextAction.ANALYZE_PORTFOLIO  # Future: route to portfolio manager
         else:
             state["next_action"] = NextAction.FORMAT_RESPONSE
@@ -71,4 +74,30 @@ def analyze_trade_node(state: HedgeFundState) -> HedgeFundState:
         state["next_action"] = NextAction.FORMAT_ERROR
         logger.error(f"❌ Trade analysis error: {e}")
     
-    return state 
+    return state
+
+def _should_route_to_risk_manager(parsed_action, recommendation) -> bool:
+    """Determine if we should route to risk manager based on trade intent"""
+    
+    # Route to risk manager if:
+    # 1. Strong trade intent (user wants to actually trade)
+    # 2. Actual buy/sell recommendation (not just informational)
+    # 3. User expressed risk concerns
+    
+    strong_trade_intent = parsed_action.trade_intent_strength > 0.6
+    actionable_recommendation = recommendation.decision.value in ["BUY", "SELL", "STRONG_BUY", "STRONG_SELL"]
+    user_risk_concerns = parsed_action.risk_concern_level > 0.3
+    
+    # Always route for strong trade intent + actionable recommendation
+    if strong_trade_intent and actionable_recommendation:
+        return True
+    
+    # Route if user has risk concerns, even with moderate trade intent
+    if user_risk_concerns and actionable_recommendation:
+        return True
+    
+    # Route if user mentioned existing positions (concentration risk check)
+    if parsed_action.existing_positions and actionable_recommendation:
+        return True
+    
+    return False 

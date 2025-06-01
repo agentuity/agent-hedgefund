@@ -21,20 +21,20 @@ def route_based_on_next_action(state: HedgeFundState) -> str:
     # Comprehensive routing map covering all possible next_actions
     routing_map = {
         # From parsing decisions
-        NextAction.REJECT_QUERY: "format_response",
-        NextAction.GENERAL_RESPONSE: "format_response",
-        NextAction.CLARIFICATION: "format_response",
+        NextAction.REJECT_QUERY: "generate_response",
+        NextAction.GENERAL_RESPONSE: "generate_response",
+        NextAction.CLARIFICATION: "generate_response",
         NextAction.SEARCH_ASSET: "search_asset",
-        NextAction.PORTFOLIO_ANALYSIS: "format_response",  # Future: route to portfolio manager
-        NextAction.RISK_ANALYSIS: "format_response",      # Future: route to risk manager
+        NextAction.PORTFOLIO_ANALYSIS: "generate_response",  # Future: route to portfolio manager
+        NextAction.RISK_ANALYSIS: "generate_response",      # Future: route to risk manager
         
         # From asset search decisions
         NextAction.ANALYZE_TRADE: "analyze_trade",
-        NextAction.FORMAT_RESPONSE: "format_response",
+        NextAction.FORMAT_RESPONSE: "generate_response",
         
         # From analysis decisions  
-        NextAction.ASSESS_RISK: "format_response",    # Future: would route to risk manager
-        NextAction.ANALYZE_PORTFOLIO: "format_response",  # Future: would route to portfolio manager
+        NextAction.ASSESS_RISK: "assess_risk",
+        NextAction.ANALYZE_PORTFOLIO: "generate_response",  # Future: would route to portfolio manager
         
         # Error handling
         NextAction.FORMAT_ERROR: "format_error"
@@ -42,7 +42,7 @@ def route_based_on_next_action(state: HedgeFundState) -> str:
     
     # Future routing logging
     if next_action == NextAction.ASSESS_RISK:
-        logger.info("🔮 Future: Would route to risk manager")
+        logger.info("🛡️ Routing to risk manager")
     elif next_action == NextAction.ANALYZE_PORTFOLIO:
         logger.info("🔮 Future: Would route to portfolio manager")
     

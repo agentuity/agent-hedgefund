@@ -5,19 +5,17 @@ Streamlined controller that orchestrates the workflow using specialized node mod
 Each node is now in its own file for better maintainability.
 """
 
-from typing import Dict, List, Optional, Any, TypedDict
+from typing import Dict, Optional, Any
 import logging
 
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import StateGraph, END
 
-from agents.hedge_fund.models import NextAction, HedgeFundState
+from agents.hedge_fund.models import HedgeFundState
 
 from agents.hedge_fund.nodes import (
-    parse_query_node, search_asset_node, analyze_trade_node,
-    format_response_node, format_error_node, route_based_on_next_action
+    parse_query_node, search_asset_node, analyze_trade_node, assess_risk_node,
+    generate_llm_response_node, format_error_node, route_based_on_next_action
 )
-
-from agents.hedge_fund.services.response_formatter_agent import FormattedResponse
 
 logger = logging.getLogger(__name__)
 
@@ -28,23 +26,21 @@ def create_hedge_fund_workflow() -> StateGraph:
     
     workflow = StateGraph(HedgeFundState)
     
-    # Add nodes (imported from specialized modules)
     workflow.add_node("parse_query", parse_query_node)
     workflow.add_node("search_asset", search_asset_node)
     workflow.add_node("analyze_trade", analyze_trade_node)
-    workflow.add_node("format_response", format_response_node)
+    workflow.add_node("assess_risk", assess_risk_node)
+    workflow.add_node("generate_response", generate_llm_response_node)
     workflow.add_node("format_error", format_error_node)
     
-    # Set entry point
     workflow.set_entry_point("parse_query")
     
-    # Add conditional routing (using universal routing function)
     workflow.add_conditional_edges(
         "parse_query",
         route_based_on_next_action,
         {
             "search_asset": "search_asset",
-            "format_response": "format_response",
+            "generate_response": "generate_response",
             "format_error": "format_error"
         }
     )
@@ -54,7 +50,7 @@ def create_hedge_fund_workflow() -> StateGraph:
         route_based_on_next_action,
         {
             "analyze_trade": "analyze_trade",
-            "format_response": "format_response",
+            "generate_response": "generate_response",
             "format_error": "format_error"
         }
     )
@@ -63,14 +59,23 @@ def create_hedge_fund_workflow() -> StateGraph:
         "analyze_trade", 
         route_based_on_next_action,
         {
-            "format_response": "format_response",
+            "assess_risk": "assess_risk",
+            "generate_response": "generate_response",
             "format_error": "format_error"
-            # Future: "assess_risk": "assess_risk"
+        }
+    )
+    
+    workflow.add_conditional_edges(
+        "assess_risk",
+        route_based_on_next_action,
+        {
+            "generate_response": "generate_response",
+            "format_error": "format_error"
         }
     )
     
     # All formatting paths lead to END
-    workflow.add_edge("format_response", END)
+    workflow.add_edge("generate_response", END)
     workflow.add_edge("format_error", END)
     
     return workflow.compile()
@@ -101,12 +106,15 @@ def run_hedge_fund_controller(user_query: str, context: Optional[Dict[str, Any]]
         "user_context": context,
         "parsed_action": None,
         "asset_search_result": None,
+        "is_valid_asset": False,
         "trade_recommendation": None,
+        "risk_assessment": None,
         "formatted_response": None,
         "next_action": None,
         "response_ready": False,
         "error": None,
-        "debug_info": None
+        "debug_info": None,
+        "confidence_score": None
     }
     
     # Run workflow
@@ -132,13 +140,13 @@ def run_hedge_fund_controller(user_query: str, context: Optional[Dict[str, Any]]
 # --- Example Usage ---
 if __name__ == "__main__":
     test_queries = [
-        "Should I buy Apple stock?",
-        "I own 100 shares of Tesla, should I buy more?",
-        "Is my portfolio too risky with 50% tech stocks?",
-        "How is Bitcoin doing today?",
-        "What is RSI?",
-        "AAPL vs MSFT which is better?",
-        "How do I cook pasta?"
+        "Should I buy Apple stock?",  # Should trigger risk manager
+        "I own 100 shares of Tesla, should I buy more?",  # Should trigger risk manager
+        "Is my portfolio too risky with 50% tech stocks?",  # Portfolio analysis
+        "How is Bitcoin doing today?",  # General market - no risk manager
+        "What is RSI?",  # Educational - no risk manager
+        "AAPL vs MSFT which is better?",  # Comparison - might trigger risk manager
+        "How do I cook pasta?"  # Off-topic
     ]
     
     for query in test_queries:
@@ -155,8 +163,8 @@ if __name__ == "__main__":
         print(f"\n{'-'*40}")
         print("✅ Test completed")
         
-    print(f"\n🎉 **Modular Architecture Testing Complete!**")
-    print("✅ Streamlined controller with specialized node modules")
-    print("✅ Clean separation of concerns across files")  
-    print("✅ Enhanced maintainability and readability")
-    print("✅ Ready for future Risk Manager and Portfolio Manager nodes")
+    print(f"\n🎉 **Risk Manager Integration Complete!**")
+    print("✅ Conditional routing based on trade intent")
+    print("✅ Risk assessment for actual trade decisions")  
+    print("✅ Bypasses risk manager for general market questions")
+    print("✅ Ready for enhanced user-personalized recommendations")

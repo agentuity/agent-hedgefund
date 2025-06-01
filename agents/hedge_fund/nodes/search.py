@@ -9,7 +9,7 @@ import logging
 
 from agents.hedge_fund.models import NextAction, HedgeFundState
 
-from agents.hedge_fund.services.asset_search_agent import (
+from agents.hedge_fund.services.asset_search_service import (
     search_and_validate_asset, is_tradeable_asset, get_asset_summary
 )
 

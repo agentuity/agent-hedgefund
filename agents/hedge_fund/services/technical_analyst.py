@@ -306,7 +306,6 @@ __all__ = [
     "analyze_stock",
     "analyze_crypto", 
     "get_ema_crossover_status",
-    # New exports for trade_decision_agent compatibility
     "TechnicalAnalysisRequest",
     "TechnicalAnalysisToolOutput", 
     "run_technical_analysis_tool",
