@@ -7,15 +7,12 @@ Validates tradeable assets and determines if analysis can proceed.
 
 import logging
 
-# Import from types package to avoid circular imports  
 from agents.hedge_fund.models import NextAction, HedgeFundState
 
-# Import specialized agents using full paths from root
 from agents.hedge_fund.services.asset_search_agent import (
     search_and_validate_asset, is_tradeable_asset, get_asset_summary
 )
 
-# Set up logger
 logger = logging.getLogger(__name__)
 
 def search_asset_node(state: HedgeFundState) -> HedgeFundState:

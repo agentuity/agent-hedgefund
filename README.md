@@ -6,7 +6,7 @@
 
 # 🏦 AI Hedge Fund Agent
 
-A sophisticated AI-powered hedge fund trading agent built with **LangGraph** orchestration, comprehensive market analysis, and intelligent routing. This agent provides professional-grade trading recommendations by analyzing technical indicators, market sentiment, and portfolio context.
+A sophisticated AI-powered hedge fund trading agent built with **Agentuity** and **LangGraph** orchestration, delivering professional-grade trading recommendations through comprehensive market analysis and intelligent routing.
 
 ## ✨ Key Features
 
@@ -17,6 +17,7 @@ A sophisticated AI-powered hedge fund trading agent built with **LangGraph** orc
 - ⚡ **Real-Time Data** - Live market data from yfinance and CoinGecko APIs
 - 🛡️ **Risk Detection** - Identifies risk concerns and routes to appropriate analysis
 - 🎨 **Professional Formatting** - Beautiful, actionable responses with insights and recommendations
+- 🚀 **Agentuity Native** - Built for seamless deployment on Agentuity platform
 
 ## 🏗️ Architecture Overview
 
@@ -29,11 +30,11 @@ graph TD
     C --> D[action_parser.py<br/>Enhanced LLM Parsing]
     D --> E{Query Analysis}
     
-    E -->|Trade Analysis| F[asset_search_agent.py<br/>Asset Search & Validation]
-    E -->|General Info| K[response_formatter_agent.py<br/>Response Formatting]
+    E -->|Trade Analysis| F[asset_search_service.py<br/>Asset Search & Validation]
+    E -->|General Info| K[response_formatter_service.py<br/>Response Formatting]
     E -->|Invalid Query| K
     
-    F --> G[trade_decision_agent.py<br/>Trade Analysis Hub]
+    F --> G[trade_decision_service.py<br/>Trade Analysis Hub]
     
     G --> H[technical_analyst.py<br/>RSI, MACD, EMA Analysis]
     G --> I[market_sentiment_analyst.py<br/>News & Sentiment Analysis]
@@ -60,31 +61,34 @@ graph TD
 
 ```
 agents/hedge_fund/
-├── agent.py                           # 🚀 Entry Point (43 lines)
-├── agents/
-│   ├── controller.py                  # 🎛️ LangGraph Orchestrator (499 lines)
-│   ├── asset_search_agent.py          # 🔍 Asset Search & Validation (360 lines)
-│   ├── response_formatter_agent.py    # 🎨 Response Formatting (399 lines)
-│   ├── trade_decision_agent.py        # 📊 Trade Analysis Hub (663 lines)
-│   ├── technical_analyst.py           # 📈 Technical Indicators (832 lines)
-│   └── market_sentiment_analyst.py    # 📰 Sentiment Analysis (739 lines)
+├── agent.py                           # 🚀 Entry Point (Agentuity networking layer)
+├── services/
+│   ├── controller.py                  # 🎛️ LangGraph Orchestrator
+│   ├── asset_search_service.py        # 🔍 Asset Search & Validation
+│   ├── response_formatter_service.py  # 🎨 Response Formatting
+│   ├── trade_decision_service.py      # 📊 Trade Analysis Hub
+│   ├── technical_analyst.py           # 📈 Technical Indicators
+│   └── market_sentiment_analyst.py    # 📰 Sentiment Analysis
 ├── tools/
-│   ├── action_parser.py               # 🧠 Enhanced LLM Parsing (266 lines)
-│   ├── asset_search.py                # 🔧 Asset Search Tools (293 lines)
+│   ├── action_parser.py               # 🧠 Enhanced LLM Parsing
+│   ├── asset_search.py                # 🔧 Asset Search Tools
 │   └── sentiment/                     # 📊 Sentiment Analysis Tools
 │       ├── base.py                    # Core sentiment classes
 │       ├── manager.py                 # Sentiment orchestration
 │       ├── news_analyzer.py           # NewsAPI integration
 │       ├── fear_greed_analyzer.py     # CNN Fear/Greed index
 │       └── economic_analyzer.py       # Economic indicators
+├── models/                            # 🏗️ Data Models & Types
+└── nodes/                             # 🔗 LangGraph Workflow Nodes
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Start with Agentuity
 
 ### Prerequisites
 
 - **Python**: 3.10+
 - **UV**: 0.5.25+ ([Documentation](https://docs.astral.sh/uv/))
+- **Agentuity CLI**: Install from [agentuity.dev](https://agentuity.dev)
 
 ### Authentication
 
@@ -94,11 +98,21 @@ agentuity login
 
 ### Development Mode
 
+Start the agent in development mode for real-time testing:
+
 ```bash
 agentuity dev
 ```
 
-This opens the Agentuity Console for real-time testing.
+This launches the Agentuity Console where you can test queries and see responses in real-time.
+
+### Production Deployment
+
+Deploy your agent to the Agentuity cloud platform:
+
+```bash
+agentuity deploy
+```
 
 ### Example Queries
 
@@ -180,18 +194,37 @@ Planned risk management capabilities:
 - Correlation analysis
 - VaR (Value at Risk) calculations
 
-## 🏗️ Deployment
+## 🏗️ Deployment with Agentuity
 
 ### Local Development
 ```bash
+# Start development server with hot reload
 agentuity dev
+
+# Test specific queries
+curl -X POST http://localhost:8000/agent \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Should I buy Apple stock?"}'
 ```
 
-### Cloud Deployment
+### Production Deployment
 ```bash
+# Deploy to Agentuity cloud
 agentuity deploy
+
+# View deployment status
+agentuity status
+
+# View logs
+agentuity logs
 ```
 
+### Environment Configuration
+```bash
+# Set API keys for production
+agentuity env set NEWS_API_KEY your_news_api_key
+agentuity env set OPENAI_API_KEY your_openai_key
+```
 
 ## 📈 Example Output
 
@@ -224,20 +257,22 @@ recent earnings and product launches...
 
 This is a production-ready hedge fund agent with clean, modular architecture. Key principles:
 
-- **Single Responsibility**: Each agent has one clear purpose
+- **Single Responsibility**: Each service has one clear purpose
 - **Clean Dependencies**: No circular imports or legacy code
 - **Enhanced Parsing**: Rich context extraction from user queries
 - **Professional Output**: Actionable, well-formatted responses
+- **Agentuity Native**: Built for optimal Agentuity platform performance
 
 ## 📚 Documentation
 
+- [Agentuity Documentation](https://agentuity.dev/docs)
 - [Agentuity Python SDK](https://agentuity.dev/SDKs/python)
 - [LangGraph Documentation](https://python.langchain.com/docs/langgraph)
 - [Technical Analysis Library](https://technical-analysis-library-in-python.readthedocs.io/)
 
 ## 🆘 Support
 
-- [Discord Community](https://discord.com/invite/vtn3hgUfuc)
+- [Agentuity Discord Community](https://discord.com/invite/vtn3hgUfuc)
 - [Agentuity Support](https://agentuity.dev/support)
 
 ---
