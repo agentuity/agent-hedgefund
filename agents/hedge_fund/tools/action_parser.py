@@ -143,13 +143,6 @@ Extract everything you can detect, even if you're not 100% certain. Your analysi
             
         return "\n".join(context_parts) if context_parts else "No additional context provided"
 
-# Global instance for backward compatibility
-enhanced_action_parser = ActionParser()
-
-def parse_user_query_enhanced(user_message: str, user_context: Optional[Dict[str, Any]] = None) -> ParsedAction:
-    """Enhanced convenience function using structured output"""
-    return enhanced_action_parser.parse_query(user_message, user_context)
-
 def parse_user_query(user_message: str, user_context: Optional[Dict[str, Any]] = None) -> ParsedAction:
-    """Main parsing function - clean interface with LLM intelligence"""
-    return parse_user_query_enhanced(user_message, user_context) 
+    """Enhanced convenience function using structured output"""
+    return ActionParser().parse_query(user_message, user_context)
