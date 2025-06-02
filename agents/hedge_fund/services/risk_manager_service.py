@@ -10,6 +10,7 @@ import logging
 from pydantic import BaseModel, Field
 
 from agents.hedge_fund.models import ParsedAction
+from agents.hedge_fund.services.trade_decision_service import TradeRecommendation
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class RiskAssessment(BaseModel):
     reasoning: str = Field(description="Risk assessment reasoning")
 
 def assess_trade_risk(
-    trade_recommendation: Any,  # TradeRecommendation object
+    trade_recommendation: TradeRecommendation,
     parsed_action: ParsedAction
 ) -> RiskAssessment:
     """
@@ -103,7 +104,7 @@ def _assess_risk_tolerance(parsed_action: ParsedAction) -> float:
             base_score = max(base_score, 0.7)
     return base_score
 
-def _assess_trade_risk_factors(trade_recommendation) -> float:
+def _assess_trade_risk_factors(trade_recommendation: TradeRecommendation) -> float:
     """Assess inherent risk of the trade recommendation"""
     
     # Base risk from confidence level (lower confidence = higher risk)
@@ -123,7 +124,7 @@ def _assess_trade_risk_factors(trade_recommendation) -> float:
     # Combine factors
     return (confidence_risk + decision_risk) / 2
 
-def _assess_concentration_risk(trade_recommendation, parsed_action: ParsedAction) -> float:
+def _assess_concentration_risk(trade_recommendation: TradeRecommendation, parsed_action: ParsedAction) -> float:
     """Assess portfolio concentration risk"""
     
     if not parsed_action.existing_positions:
@@ -162,7 +163,7 @@ def _determine_risk_level(overall_risk_score: float) -> str:
 def _generate_risk_guidance(
     overall_risk_score: float, 
     risk_level: str, 
-    trade_recommendation, 
+    trade_recommendation: TradeRecommendation, 
     parsed_action: ParsedAction
 ) -> tuple[List[str], List[str]]:
     """Generate warnings and recommendations"""
@@ -212,7 +213,7 @@ def _should_proceed_with_trade(overall_risk_score: float, parsed_action: ParsedA
 
 def _recommend_position_size(
     overall_risk_score: float, 
-    trade_recommendation, 
+    trade_recommendation: TradeRecommendation, 
     parsed_action: ParsedAction
 ) -> Optional[float]:
     """Recommend position size as percentage of portfolio"""
