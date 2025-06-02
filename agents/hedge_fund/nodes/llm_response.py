@@ -6,13 +6,12 @@ Replaces complex string-building logic with intelligent response generation.
 """
 
 import logging
-from typing import Optional, Dict, Any
 from datetime import datetime
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
-from agents.hedge_fund.models import NextAction, HedgeFundState
+from agents.hedge_fund.models import NextAction, HedgeFundState, IntentType
 from agents.hedge_fund.services.response_formatter_service import FormattedResponse
 
 logger = logging.getLogger(__name__)
@@ -76,10 +75,16 @@ def _create_response_prompt(
 ) -> str:
     """Create comprehensive prompt for LLM response generation"""
     
+    if(parsed_action.intent_type == IntentType.INVALID_QUERY):
+        return "I'm sorry, I can only help with trading and investment questions. Please ask about a specific stock or crypto asset."
+    elif(parsed_action.intent_type == IntentType.UNCLEAR):
+        return "I'm sorry, I'm not sure what you're asking. Please ask about a specific stock or crypto asset."
+    
     prompt_parts = [
         "You are a professional hedge fund trading assistant. Your job is to provide clear, direct, and actionable responses to trading questions.",
         "",
-        "TASK: Answer the user's question based on comprehensive analysis data provided below.",
+        "TASK: Answer the user's question based on the analysis data provided below.",
+        "If the user's question is not related to trading or investment, please respond with a helpful message and keep it precise.",
         "",
         f"USER'S ORIGINAL QUESTION: \"{parsed_action.original_query}\"",
         "",
