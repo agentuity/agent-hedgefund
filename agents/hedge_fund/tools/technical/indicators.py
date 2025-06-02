@@ -137,25 +137,21 @@ def detect_ema_crossover(ema_fast: List[float], ema_slow: List[float]) -> Dict[s
     else:
         current_position = 'neutral'
     
-    # Check for recent crossover
     recent_crossover = None
-    crossover_strength = 0.0
+    crossover_strength = (
+                abs(current_fast - current_slow) / current_slow * 100
+                if current_slow != 0
+                else 0.0
+            )
     
     if len(fast_aligned) >= 3:
         prev_fast = fast_aligned[-2]
         prev_slow = slow_aligned[-2]
         
-        # Bullish crossover
         if prev_fast <= prev_slow and current_fast > current_slow:
             recent_crossover = 'bullish'
-            # FIX: Return percentage value, not capped at 1.0
-            crossover_strength = abs(current_fast - current_slow) / current_slow * 100
-        
-        # Bearish crossover
         elif prev_fast >= prev_slow and current_fast < current_slow:
             recent_crossover = 'bearish'
-            # FIX: Return percentage value, not capped at 1.0
-            crossover_strength = abs(current_fast - current_slow) / current_slow * 100
     
     return {
         'current_position': current_position,
