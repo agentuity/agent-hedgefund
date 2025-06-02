@@ -4,7 +4,7 @@ Action Types
 Contains types related to query parsing and action extraction.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 

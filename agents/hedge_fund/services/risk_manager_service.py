@@ -5,7 +5,7 @@ Analyzes trade recommendations against user risk tolerance and portfolio context
 Only triggered for actual trade decisions, not general market questions.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 import logging
 from pydantic import BaseModel, Field
 

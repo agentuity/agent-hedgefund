@@ -4,7 +4,7 @@ Workflow Types
 Contains types related to the LangGraph workflow state and routing.
 """
 
-from typing import Dict, List, Optional, Any, TypedDict
+from typing import Dict, Optional, Any, TypedDict
 from enum import Enum
 
 class NextAction(Enum):
