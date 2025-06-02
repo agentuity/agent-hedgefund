@@ -48,14 +48,13 @@ def interpret_sma_signal(prices: List[float], sma_values: List[float], period: i
         direction = SignalDirection.BEARISH
         explanation = f"Price (${current_price:.2f}) is {distance_percentage:.1f}% below SMA{period} (${current_sma:.2f})"
     
-    # Strength based on distance
-    if distance_percentage < 1:
+    if distance_percentage < 0.5:
         strength = SignalStrength.WEAK
-        confidence = 0.3
-    elif distance_percentage < 3:
+        confidence = 0.4
+    elif distance_percentage < 2:
         strength = SignalStrength.MODERATE
-        confidence = 0.6
-    elif distance_percentage < 5:
+        confidence = 0.65
+    elif distance_percentage < 4:
         strength = SignalStrength.STRONG
         confidence = 0.8
     else:
@@ -117,11 +116,11 @@ def interpret_ema_signal(prices: List[float],
     elif fast_above_slow:
         direction = SignalDirection.BULLISH
         explanation = f"EMA{fast_period} above EMA{slow_period} by {crossover_distance:.1f}%"
-        confidence = min(0.7, 0.3 + crossover_distance * 0.05)
+        confidence = min(0.75, 0.4 + crossover_distance * 0.08)
     else:
         direction = SignalDirection.BEARISH
         explanation = f"EMA{fast_period} below EMA{slow_period} by {crossover_distance:.1f}%"
-        confidence = min(0.7, 0.3 + crossover_distance * 0.05)
+        confidence = min(0.75, 0.4 + crossover_distance * 0.08)
     
     # Strength calculation
     if bullish_crossover or bearish_crossover:
@@ -132,9 +131,9 @@ def interpret_ema_signal(prices: List[float],
         else:
             strength = SignalStrength.MODERATE
     else:
-        if crossover_distance > 3:
+        if crossover_distance > 2.5:
             strength = SignalStrength.STRONG
-        elif crossover_distance > 1.5:
+        elif crossover_distance > 1.0:
             strength = SignalStrength.MODERATE
         else:
             strength = SignalStrength.WEAK
@@ -165,7 +164,6 @@ def interpret_rsi_signal(rsi_values: List[float]) -> Dict[str, Any]:
     
     current_rsi = rsi_values[-1]
     
-    # RSI interpretation
     if current_rsi >= 70:
         direction = SignalDirection.BEARISH
         strength = SignalStrength.STRONG if current_rsi >= 80 else SignalStrength.MODERATE
@@ -176,21 +174,21 @@ def interpret_rsi_signal(rsi_values: List[float]) -> Dict[str, Any]:
         strength = SignalStrength.STRONG if current_rsi <= 20 else SignalStrength.MODERATE
         explanation = f"OVERSOLD: RSI {current_rsi:.1f} indicates potential buying opportunity"
         confidence = min(0.9, (30 - current_rsi) / 30 * 0.5 + 0.5)
-    elif 30 < current_rsi < 45:
+    elif current_rsi < 40:
         direction = SignalDirection.BEARISH
         strength = SignalStrength.WEAK
-        explanation = f"RSI {current_rsi:.1f} in bearish territory but not oversold"
-        confidence = 0.3
-    elif 55 < current_rsi < 70:
+        explanation = f"RSI {current_rsi:.1f} in bearish territory"
+        confidence = 0.45
+    elif current_rsi > 60:
         direction = SignalDirection.BULLISH
         strength = SignalStrength.WEAK
-        explanation = f"RSI {current_rsi:.1f} in bullish territory but not overbought"
-        confidence = 0.3
+        explanation = f"RSI {current_rsi:.1f} in bullish territory"
+        confidence = 0.45
     else:
         direction = SignalDirection.NEUTRAL
         strength = SignalStrength.WEAK
-        explanation = f"RSI {current_rsi:.1f} in neutral range (45-55)"
-        confidence = 0.2
+        explanation = f"RSI {current_rsi:.1f} in neutral range (40-60)"
+        confidence = 0.25
     
     return {
         'direction': direction,

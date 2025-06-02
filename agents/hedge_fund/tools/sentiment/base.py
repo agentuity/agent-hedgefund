@@ -11,6 +11,8 @@ from datetime import datetime
 class AssetType(str, Enum):
     STOCK = "STOCK"
     CRYPTO = "CRYPTO"
+    ETF = "ETF"
+    INDEX = "INDEX"
 
 class SentimentType(str, Enum):
     VERY_BULLISH = "VERY_BULLISH"

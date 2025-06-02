@@ -21,7 +21,8 @@ def convert_asset_type(module_asset_type: AssetType) -> TradeAssetType:
     """Convert module AssetType to trade decision AssetType"""
     if module_asset_type == AssetType.CRYPTO:
         return TradeAssetType.CRYPTO
-    elif module_asset_type == AssetType.STOCK:
+    elif module_asset_type in [AssetType.STOCK, AssetType.ETF, AssetType.INDEX]:
+        # ETFs and index funds are analyzed the same as stocks for trading decisions
         return TradeAssetType.STOCK
     else:
         raise ValueError(f"Unsupported asset type: {module_asset_type}")

@@ -3,6 +3,7 @@ Market Data Fetcher Module
 
 Handles fetching market data from various sources (yfinance, CoinGecko).
 Clean interface for data retrieval without analysis logic.
+Supports stocks, ETFs, index funds, and cryptocurrencies.
 """
 
 from typing import List, Optional, Dict
@@ -31,13 +32,19 @@ class MarketData:
         if self.current_price is None and self.prices:
             self.current_price = self.prices[-1]
 
-def fetch_stock_data(symbol: str, timeframe: str = "1d", period: str = "1y") -> Optional[MarketData]:
+def fetch_yfinance_data(symbol: str, asset_type: AssetType, timeframe: str = "1d", period: str = "1y") -> Optional[MarketData]:
     """
-    Fetch stock data using yfinance
+    Fetch market data using yfinance (supports stocks, ETFs, index funds)
     Returns MarketData object or None if data cannot be fetched
     """
     try:
-        logger.info(f"🔍 Fetching stock data for {symbol}")
+        asset_name = {
+            AssetType.STOCK: "stock",
+            AssetType.ETF: "ETF", 
+            AssetType.INDEX: "index fund"
+        }.get(asset_type, "asset")
+        
+        logger.info(f"🔍 Fetching {asset_name} data for {symbol}")
         
         ticker = yf.Ticker(symbol)
         data = ticker.history(period=period, interval=timeframe)
@@ -57,14 +64,14 @@ def fetch_stock_data(symbol: str, timeframe: str = "1d", period: str = "1y") -> 
         
         return MarketData(
             symbol=symbol,
-            asset_type=AssetType.STOCK,
+            asset_type=asset_type,
             prices=prices,
             volumes=volumes,
             timeframe=timeframe
         )
         
     except Exception as e:
-        logger.error(f"❌ Error fetching stock data for {symbol}: {e}")
+        logger.error(f"❌ Error fetching yfinance data for {symbol}: {e}")
         return None
 
 def fetch_crypto_data(symbol: str, timeframe: str = "1d", days: int = 365) -> Optional[MarketData]:
@@ -92,7 +99,13 @@ def fetch_crypto_data(symbol: str, timeframe: str = "1d", days: int = 365) -> Op
             "MATIC-USD": "matic-network",
             "MATIC": "matic-network",
             "DOT-USD": "polkadot",
-            "DOT": "polkadot"
+            "DOT": "polkadot",
+            "LINK-USD": "chainlink",
+            "LINK": "chainlink",
+            "AVAX-USD": "avalanche-2",
+            "AVAX": "avalanche-2",
+            "LTC-USD": "litecoin",
+            "LTC": "litecoin"
         }
         
         coin_id = symbol_mapping.get(symbol.upper())
@@ -141,8 +154,9 @@ def fetch_market_data(symbol: str, asset_type: AssetType, timeframe: str = "1d")
     try:
         logger.info(f"🔍 Fetching market data for {symbol} ({asset_type.value})")
         
-        if asset_type == AssetType.STOCK:
-            return fetch_stock_data(symbol, timeframe)
+        if asset_type in [AssetType.STOCK, AssetType.ETF, AssetType.INDEX]:
+            # All these asset types are available through yfinance
+            return fetch_yfinance_data(symbol, asset_type, timeframe)
         elif asset_type == AssetType.CRYPTO:
             return fetch_crypto_data(symbol, timeframe)
         else:
@@ -168,17 +182,53 @@ def validate_market_data(market_data: MarketData, min_periods: int = 50) -> bool
     
     return True
 
-def get_supported_crypto_symbols() -> List[str]:
-    """Get list of supported cryptocurrency symbols"""
-    return [
-        "BTC-USD", "BTC", "ETH-USD", "ETH", "ADA-USD", "ADA",
-        "SOL-USD", "SOL", "DOGE-USD", "DOGE", "MATIC-USD", "MATIC",
-        "DOT-USD", "DOT"
-    ]
+def get_supported_assets() -> Dict[str, List[str]]:
+    """Get lists of supported assets by type"""
+    return {
+        "popular_etfs": [
+            "SPY",   # S&P 500
+            "QQQ",   # Nasdaq 100
+            "VTI",   # Total Stock Market
+            "DIA",   # Dow Jones
+            "IWM",   # Russell 2000
+            "XLF",   # Financial Sector
+            "XLK",   # Technology Sector
+            "XLE",   # Energy Sector
+            "VEA",   # Developed Markets
+            "VWO"    # Emerging Markets
+        ],
+        "popular_index_funds": [
+            "VTIAX", # Vanguard Total International Stock
+            "FXAIX", # Fidelity 500 Index Fund
+            "SWTSX", # Schwab Total Stock Market
+            "VTSAX", # Vanguard Total Stock Market
+            "VFIAX"  # Vanguard 500 Index Fund
+        ],
+        "crypto": [
+            "BTC-USD", "BTC", "ETH-USD", "ETH", "ADA-USD", "ADA",
+            "SOL-USD", "SOL", "DOGE-USD", "DOGE", "MATIC-USD", "MATIC",
+            "DOT-USD", "DOT", "LINK-USD", "LINK", "AVAX-USD", "AVAX",
+            "LTC-USD", "LTC"
+        ]
+    }
 
 def get_data_summary(market_data: MarketData) -> str:
     """Get a brief summary of the market data"""
     if not market_data:
         return "No market data available"
     
-    return f"{market_data.symbol} ({market_data.asset_type.value}): {len(market_data.prices)} periods, Current: ${market_data.current_price:.2f}" 
+    return f"{market_data.symbol} ({market_data.asset_type.value}): {len(market_data.prices)} periods, Current: ${market_data.current_price:.2f}"
+
+def is_etf_or_index(symbol: str) -> bool:
+    """Check if a symbol is likely an ETF or index fund"""
+    etfs_and_indexes = get_supported_assets()["popular_etfs"] + get_supported_assets()["popular_index_funds"]
+    return symbol.upper() in [s.upper() for s in etfs_and_indexes]
+
+# --- Backward Compatibility ---
+# Keep the old function name for backward compatibility
+def fetch_stock_data(symbol: str, timeframe: str = "1d", period: str = "1y") -> Optional[MarketData]:
+    """
+    Legacy function for backward compatibility
+    Routes to fetch_yfinance_data with STOCK asset type
+    """
+    return fetch_yfinance_data(symbol, AssetType.STOCK, timeframe, period) 

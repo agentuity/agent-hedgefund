@@ -86,12 +86,12 @@ def calculate_macd(prices: List[float],
     fast_ema = calculate_ema(prices, fast_period)
     slow_ema = calculate_ema(prices, slow_period)
     
-    # Align the EMAs (slow EMA starts later)
-    start_index = slow_period - fast_period
-    aligned_fast_ema = fast_ema[start_index:]
+    min_length = min(len(fast_ema), len(slow_ema))
+    aligned_fast_ema = fast_ema[-min_length:]
+    aligned_slow_ema = slow_ema[-min_length:]
     
     # Calculate MACD line
-    macd_line = [fast - slow for fast, slow in zip(aligned_fast_ema, slow_ema)]
+    macd_line = [fast - slow for fast, slow in zip(aligned_fast_ema, aligned_slow_ema)]
     
     # Calculate signal line
     if len(macd_line) < signal_period:
@@ -99,7 +99,7 @@ def calculate_macd(prices: List[float],
     
     signal_line = calculate_ema(macd_line, signal_period)
     
-    # Calculate histogram
+    # Calculate histogram - align to signal line length
     start_index_hist = len(macd_line) - len(signal_line)
     aligned_macd_line = macd_line[start_index_hist:]
     histogram = [macd - signal for macd, signal in zip(aligned_macd_line, signal_line)]
@@ -148,12 +148,14 @@ def detect_ema_crossover(ema_fast: List[float], ema_slow: List[float]) -> Dict[s
         # Bullish crossover
         if prev_fast <= prev_slow and current_fast > current_slow:
             recent_crossover = 'bullish'
-            crossover_strength = min(abs(current_fast - current_slow) / current_slow * 100, 1.0)
+            # FIX: Return percentage value, not capped at 1.0
+            crossover_strength = abs(current_fast - current_slow) / current_slow * 100
         
         # Bearish crossover
         elif prev_fast >= prev_slow and current_fast < current_slow:
             recent_crossover = 'bearish'
-            crossover_strength = min(abs(current_fast - current_slow) / current_slow * 100, 1.0)
+            # FIX: Return percentage value, not capped at 1.0
+            crossover_strength = abs(current_fast - current_slow) / current_slow * 100
     
     return {
         'current_position': current_position,

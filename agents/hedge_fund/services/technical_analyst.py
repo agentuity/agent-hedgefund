@@ -90,46 +90,79 @@ def run_technical_analysis_tool(request: TechnicalAnalysisRequest) -> TechnicalA
         # Convert to old format
         indicators = []
         
-        # Map indicators to the old format
+        # Map indicators to the old format - FIX: properly access signal direction
         if analysis.indicators.sma_20:
-            signal_strength = 0.7 if analysis.signals.sma_signal == "bullish" else 0.3
-            signal_type = TechnicalSignal.BUY if analysis.signals.sma_signal == "bullish" else TechnicalSignal.SELL
+            sma_direction = analysis.signals.sma_signal.get('direction')
+            signal_strength = analysis.signals.sma_signal.get('confidence', 0.5)
+            if sma_direction and sma_direction.value == "bullish":
+                signal_type = TechnicalSignal.BUY
+            elif sma_direction and sma_direction.value == "bearish":
+                signal_type = TechnicalSignal.SELL
+            else:
+                signal_type = TechnicalSignal.HOLD
+            
             indicators.append(IndicatorOutput(
                 name="sma",
                 values=analysis.indicators.sma_20,
-                signal=SignalOutput(signal_type, signal_strength, f"SMA trend: {analysis.signals.sma_signal}")
+                signal=SignalOutput(signal_type, signal_strength, f"SMA trend: {sma_direction.value if sma_direction else 'neutral'}")
             ))
         
         if analysis.indicators.ema_8:
-            signal_strength = 0.8 if analysis.signals.ema_signal == "bullish" else 0.2
-            signal_type = TechnicalSignal.BUY if analysis.signals.ema_signal == "bullish" else TechnicalSignal.SELL
+            ema_direction = analysis.signals.ema_signal.get('direction')
+            signal_strength = analysis.signals.ema_signal.get('confidence', 0.5)
+            if ema_direction and ema_direction.value == "bullish":
+                signal_type = TechnicalSignal.BUY
+            elif ema_direction and ema_direction.value == "bearish":
+                signal_type = TechnicalSignal.SELL
+            else:
+                signal_type = TechnicalSignal.HOLD
+                
             indicators.append(IndicatorOutput(
                 name="ema_crossover",
                 values=analysis.indicators.ema_8,
-                signal=SignalOutput(signal_type, signal_strength, f"EMA crossover: {analysis.signals.ema_signal}")
+                signal=SignalOutput(signal_type, signal_strength, f"EMA crossover: {ema_direction.value if ema_direction else 'neutral'}")
             ))
         
         if analysis.indicators.rsi_14:
-            signal_strength = 0.6 if analysis.signals.rsi_signal == "bullish" else 0.4
-            signal_type = TechnicalSignal.BUY if analysis.signals.rsi_signal == "bullish" else TechnicalSignal.SELL
+            rsi_direction = analysis.signals.rsi_signal.get('direction')
+            signal_strength = analysis.signals.rsi_signal.get('confidence', 0.5)
+            if rsi_direction and rsi_direction.value == "bullish":
+                signal_type = TechnicalSignal.BUY
+            elif rsi_direction and rsi_direction.value == "bearish":
+                signal_type = TechnicalSignal.SELL
+            else:
+                signal_type = TechnicalSignal.HOLD
+                
             indicators.append(IndicatorOutput(
                 name="rsi",
                 values=analysis.indicators.rsi_14,
-                signal=SignalOutput(signal_type, signal_strength, f"RSI: {analysis.signals.rsi_signal}")
+                signal=SignalOutput(signal_type, signal_strength, f"RSI: {rsi_direction.value if rsi_direction else 'neutral'}")
             ))
         
         # Add MACD indicator if available
         if analysis.indicators.macd and 'macd_line' in analysis.indicators.macd:
-            signal_strength = 0.7 if analysis.signals.macd_signal == "bullish" else 0.3
-            signal_type = TechnicalSignal.BUY if analysis.signals.macd_signal == "bullish" else TechnicalSignal.SELL
+            macd_direction = analysis.signals.macd_signal.get('direction')
+            signal_strength = analysis.signals.macd_signal.get('confidence', 0.5)
+            if macd_direction and macd_direction.value == "bullish":
+                signal_type = TechnicalSignal.BUY
+            elif macd_direction and macd_direction.value == "bearish":
+                signal_type = TechnicalSignal.SELL
+            else:
+                signal_type = TechnicalSignal.HOLD
+                
             indicators.append(IndicatorOutput(
                 name="macd",
                 values=analysis.indicators.macd['macd_line'],
-                signal=SignalOutput(signal_type, signal_strength, f"MACD: {analysis.signals.macd_signal}")
+                signal=SignalOutput(signal_type, signal_strength, f"MACD: {macd_direction.value if macd_direction else 'neutral'}")
             ))
         
-        # Determine overall signal
-        overall_signal = TechnicalSignal.BUY if analysis.overall_direction.value == "bullish" else TechnicalSignal.SELL
+        # Determine overall signal - FIX: properly access direction
+        if analysis.overall_direction.value == "bullish":
+            overall_signal = TechnicalSignal.BUY
+        elif analysis.overall_direction.value == "bearish":
+            overall_signal = TechnicalSignal.SELL
+        else:
+            overall_signal = TechnicalSignal.HOLD
         
         return TechnicalAnalysisToolOutput(
             symbol=request.symbol,
