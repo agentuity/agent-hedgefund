@@ -97,11 +97,10 @@ def _assess_risk_tolerance(parsed_action: ParsedAction) -> float:
         hint = parsed_action.risk_tolerance_hint.lower()
         if any(word in hint for word in ['conservative', 'safe', 'low risk', 'cautious']):
             base_score = min(base_score, 0.3)
-        elif any(word in hint for word in ['aggressive', 'high risk', 'risky']):
-            base_score = max(base_score, 0.7)
         elif any(word in hint for word in ['very aggressive', 'maximum risk']):
             base_score = max(base_score, 0.9)
-    
+        elif any(word in hint for word in ['aggressive', 'high risk', 'risky']):
+            base_score = max(base_score, 0.7)
     return base_score
 
 def _assess_trade_risk_factors(trade_recommendation) -> float:
