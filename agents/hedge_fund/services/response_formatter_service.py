@@ -30,6 +30,165 @@ class FormattedResponse(BaseModel):
 
 # --- Trade Recommendation Formatting ---
 
+def _format_intro_section(decision: str, asset_info: AssetInfo, trade_direction: Optional[TradeDirection]) -> List[str]:
+    """Format the introductory section of the response"""
+    intro = _create_trade_intro(decision, asset_info, trade_direction)
+    return [intro, ""]
+
+def _format_decision_section(recommendation: TradeRecommendation) -> List[str]:
+    """Format the decision and confidence section"""
+    decision = recommendation.decision.value
+    confidence = recommendation.confidence.value
+    confidence_score = recommendation.confidence_score
+    
+    # Decision emojis for visual appeal
+    decision_emoji = {
+        "STRONG_BUY": "🚀", "BUY": "📈", "HOLD": "⏸️",
+        "SELL": "📉", "STRONG_SELL": "🔻", "NO_TRADE": "⛔"
+    }
+    
+    return [
+        f"{decision_emoji.get(decision, '❓')} **Decision:** {decision}",
+        f"🎯 **Confidence:** {confidence} ({confidence_score:.1%})",
+    ]
+
+def _format_price_info_section(asset_info: AssetInfo) -> List[str]:
+    """Format the price and exchange information section"""
+    price_info = []
+    
+    if asset_info.current_price:
+        price_info.append(f"💰 **Current Price:** ${asset_info.current_price:.2f}")
+    
+    if asset_info.exchange:
+        price_info.append(f"🏢 **Exchange:** {asset_info.exchange}")
+    
+    return price_info
+
+def _format_risk_section(risk_assessment) -> List[str]:
+    """Format the risk assessment section"""
+    if not risk_assessment:
+        return []
+    
+    risk_parts = ["", "🛡️ **Risk Assessment:**"]
+    
+    # Risk level with emoji
+    risk_emoji = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠", "VERY_HIGH": "🔴"}
+    risk_parts.append(f"{risk_emoji.get(risk_assessment.risk_level, '⚫')} **Risk Level:** {risk_assessment.risk_level}")
+    
+    # Position size recommendation
+    if risk_assessment.position_size_recommendation:
+        risk_parts.append(f"💼 **Recommended Position Size:** {risk_assessment.position_size_recommendation:.1%} of portfolio")
+    
+    # Warnings if any
+    if risk_assessment.warnings:
+        risk_parts.append("")
+        for warning in risk_assessment.warnings:
+            risk_parts.append(warning)
+    
+    # Risk recommendations
+    if risk_assessment.recommendations:
+        risk_parts.append("")
+        risk_parts.append("**Risk Recommendations:**")
+        for rec in risk_assessment.recommendations:
+            risk_parts.append(f"• {rec}")
+    
+    # Should proceed indicator
+    if not risk_assessment.should_proceed:
+        risk_parts.extend([
+            "",
+            "🚨 **⚠️ CAUTION:** Consider avoiding this trade due to high risk factors"
+        ])
+    
+    return risk_parts
+
+def _format_key_factors_section(recommendation: TradeRecommendation) -> List[str]:
+    """Format the key factors section"""
+    factors_parts = ["", "**Key Factors:**"]
+    for i, factor in enumerate(recommendation.key_factors[:3], 1):
+        factors_parts.append(f"{i}. {factor}")
+    
+    return factors_parts
+
+def _format_insights_section(recommendation: TradeRecommendation) -> List[str]:
+    """Format the enhanced insights section"""
+    if not recommendation.enhanced_insights:
+        return []
+    
+    insights_parts = ["", "**AI Insights:**"]
+    insights = recommendation.enhanced_insights
+    
+    if insights.get('key_themes'):
+        themes = ', '.join(insights['key_themes'][:3])
+        insights_parts.append(f"🧠 **Market Themes:** {themes}")
+    
+    if insights.get('market_moving_events'):
+        events = ', '.join(insights['market_moving_events'][:2])
+        insights_parts.append(f"📰 **Key Events:** {events}")
+    
+    if insights.get('risk_factors'):
+        risks = ', '.join(insights['risk_factors'][:2])
+        insights_parts.append(f"⚠️ **Risk Factors:** {risks}")
+    
+    return insights_parts
+
+def _format_analysis_section(recommendation: TradeRecommendation, parsed_action: ParsedAction, risk_assessment) -> List[str]:
+    """Format the market context, analysis, and portfolio context section"""
+    analysis_parts = [
+        "",
+        f"**Market Context:** {recommendation.market_context}",
+        "",
+        f"**Analysis:** {recommendation.reasoning}"
+    ]
+    
+    # Add portfolio context if detected
+    if parsed_action.portfolio_context_strength > 0.5:
+        if parsed_action.mentioned_positions:
+            analysis_parts.extend([
+                "",
+                "**Portfolio Context:** Based on your existing positions"
+            ])
+    
+    # Add risk reasoning if available
+    if risk_assessment and risk_assessment.reasoning:
+        analysis_parts.extend([
+            "",
+            f"**Risk Analysis:** {risk_assessment.reasoning}"
+        ])
+    
+    return analysis_parts
+
+def _format_timestamp_section(recommendation: TradeRecommendation) -> List[str]:
+    """Format the timestamp section"""
+    return [
+        "",
+        f"*Analysis completed at {recommendation.timestamp.strftime('%Y-%m-%d %H:%M:%S')}*"
+    ]
+
+def _format_metadata_section(recommendation: TradeRecommendation, asset_info: AssetInfo, parsed_action: ParsedAction, risk_assessment) -> Dict[str, Any]:
+    """Format the metadata section"""
+    symbol = recommendation.symbol
+    decision = recommendation.decision.value
+    confidence_score = recommendation.confidence_score
+    
+    metadata = {
+        "symbol": symbol,
+        "decision": decision,
+        "confidence_score": confidence_score,
+        "asset_type": asset_info.asset_type.value,
+        "intent_type": parsed_action.intent_type.value
+    }
+    
+    # Add risk metadata if available
+    if risk_assessment:
+        metadata.update({
+            "risk_level": risk_assessment.risk_level,
+            "risk_score": risk_assessment.overall_risk_score,
+            "should_proceed": risk_assessment.should_proceed,
+            "position_size_rec": risk_assessment.position_size_recommendation
+        })
+    
+    return metadata
+
 def format_trade_recommendation_response(
     recommendation: TradeRecommendation, 
     asset_info: AssetInfo, 
@@ -41,138 +200,23 @@ def format_trade_recommendation_response(
     try:
         logger.info(f"📝 Formatting trade recommendation for {asset_info.symbol}")
         
-        symbol = recommendation.symbol
         decision = recommendation.decision.value
-        confidence = recommendation.confidence.value
-        confidence_score = recommendation.confidence_score
-        trade_direction = parsed_action.trade_direction
         
-        # Create intent-specific intro
-        intro = _create_trade_intro(decision, asset_info, trade_direction)
+        # Build response parts using helper functions
+        response_parts = []
         
-        # Decision emojis for visual appeal
-        decision_emoji = {
-            "STRONG_BUY": "🚀", "BUY": "📈", "HOLD": "⏸️",
-            "SELL": "📉", "STRONG_SELL": "🔻", "NO_TRADE": "⛔"
-        }
-        
-        # Build response parts
-        response_parts = [
-            intro,
-            "",
-            f"{decision_emoji.get(decision, '❓')} **Decision:** {decision}",
-            f"🎯 **Confidence:** {confidence} ({confidence_score:.1%})",
-        ]
-        
-        # Add price and exchange info if available
-        if asset_info.current_price:
-            response_parts.append(f"💰 **Current Price:** ${asset_info.current_price:.2f}")
-        
-        if asset_info.exchange:
-            response_parts.append(f"🏢 **Exchange:** {asset_info.exchange}")
-        
-        # Add risk assessment if available
-        if risk_assessment:
-            response_parts.extend(["", "🛡️ **Risk Assessment:**"])
-            
-            # Risk level with emoji
-            risk_emoji = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠", "VERY_HIGH": "🔴"}
-            response_parts.append(f"{risk_emoji.get(risk_assessment.risk_level, '⚫')} **Risk Level:** {risk_assessment.risk_level}")
-            
-            # Position size recommendation
-            if risk_assessment.position_size_recommendation:
-                response_parts.append(f"💼 **Recommended Position Size:** {risk_assessment.position_size_recommendation:.1%} of portfolio")
-            
-            # Warnings if any
-            if risk_assessment.warnings:
-                response_parts.append("")
-                for warning in risk_assessment.warnings:
-                    response_parts.append(warning)
-            
-            # Risk recommendations
-            if risk_assessment.recommendations:
-                response_parts.append("")
-                response_parts.append("**Risk Recommendations:**")
-                for rec in risk_assessment.recommendations:
-                    response_parts.append(f"• {rec}")
-            
-            # Should proceed indicator
-            if not risk_assessment.should_proceed:
-                response_parts.extend([
-                    "",
-                    "🚨 **⚠️ CAUTION:** Consider avoiding this trade due to high risk factors"
-                ])
-        
-        # Add key factors
-        response_parts.extend(["", "**Key Factors:**"])
-        for i, factor in enumerate(recommendation.key_factors[:3], 1):
-            response_parts.append(f"{i}. {factor}")
-        
-        # Add enhanced insights if available
-        if recommendation.enhanced_insights:
-            response_parts.extend(["", "**AI Insights:**"])
-            insights = recommendation.enhanced_insights
-            
-            if insights.get('key_themes'):
-                themes = ', '.join(insights['key_themes'][:3])
-                response_parts.append(f"🧠 **Market Themes:** {themes}")
-            
-            if insights.get('market_moving_events'):
-                events = ', '.join(insights['market_moving_events'][:2])
-                response_parts.append(f"📰 **Key Events:** {events}")
-            
-            if insights.get('risk_factors'):
-                risks = ', '.join(insights['risk_factors'][:2])
-                response_parts.append(f"⚠️ **Risk Factors:** {risks}")
-        
-        # Add market context and analysis
-        response_parts.extend([
-            "",
-            f"**Market Context:** {recommendation.market_context}",
-            "",
-            f"**Analysis:** {recommendation.reasoning}"
-        ])
-        
-        # Add portfolio context if detected
-        if parsed_action.portfolio_context_strength > 0.5:
-            if parsed_action.mentioned_positions:
-                response_parts.extend([
-                    "",
-                    "**Portfolio Context:** Based on your existing positions"
-                ])
-        
-        # Add risk reasoning if available
-        if risk_assessment and risk_assessment.reasoning:
-            response_parts.extend([
-                "",
-                f"**Risk Analysis:** {risk_assessment.reasoning}"
-            ])
-        
-        # Add timestamp
-        response_parts.extend([
-            "",
-            f"*Analysis completed at {recommendation.timestamp.strftime('%Y-%m-%d %H:%M:%S')}*"
-        ])
+        # Add each section
+        response_parts.extend(_format_intro_section(decision, asset_info, parsed_action.trade_direction))
+        response_parts.extend(_format_decision_section(recommendation))
+        response_parts.extend(_format_price_info_section(asset_info))
+        response_parts.extend(_format_risk_section(risk_assessment))
+        response_parts.extend(_format_key_factors_section(recommendation))
+        response_parts.extend(_format_insights_section(recommendation))
+        response_parts.extend(_format_analysis_section(recommendation, parsed_action, risk_assessment))
+        response_parts.extend(_format_timestamp_section(recommendation))
         
         content = "\n".join(filter(None, response_parts))
-        
-        # Enhanced metadata with risk info
-        metadata = {
-            "symbol": symbol,
-            "decision": decision,
-            "confidence_score": confidence_score,
-            "asset_type": asset_info.asset_type.value,
-            "intent_type": parsed_action.intent_type.value
-        }
-        
-        # Add risk metadata if available
-        if risk_assessment:
-            metadata.update({
-                "risk_level": risk_assessment.risk_level,
-                "risk_score": risk_assessment.overall_risk_score,
-                "should_proceed": risk_assessment.should_proceed,
-                "position_size_rec": risk_assessment.position_size_recommendation
-            })
+        metadata = _format_metadata_section(recommendation, asset_info, parsed_action, risk_assessment)
         
         return FormattedResponse(
             content=content,
