@@ -189,36 +189,3 @@ __all__ = [
     "run_enhanced_market_sentiment_analysis",
     "AssetType"  # Re-export for convenience
 ]
-
-# --- Example Usage ---
-
-if __name__ == "__main__":
-    # Test the streamlined sentiment analysis
-    print("🔍 **Enhanced Market Sentiment Analysis Testing**\n")
-    
-    # Test stock sentiment
-    print("--- Stock Sentiment Analysis ---")
-    stock_analysis = analyze_stock_sentiment("AAPL", lookback_days=7)
-    print(f"Result: {get_sentiment_summary(stock_analysis)}")
-    print(f"Actionable: {has_actionable_sentiment(stock_analysis)}")
-    
-    if stock_analysis.enhanced_insights:
-        print("Enhanced Insights:")
-        for key, value in stock_analysis.enhanced_insights.items():
-            print(f"  {key}: {value}")
-    
-    print("\n--- Crypto Sentiment Analysis ---")
-    crypto_analysis = analyze_crypto_sentiment("BTC-USD", lookback_days=3)
-    print(f"Result: {get_sentiment_summary(crypto_analysis)}")
-    print(f"Actionable: {has_actionable_sentiment(crypto_analysis)}")
-    
-    if crypto_analysis.enhanced_insights:
-        print("Enhanced Insights:")
-        for key, value in crypto_analysis.enhanced_insights.items():
-            print(f"  {key}: {value}")
-    
-    print("\n✅ **Clean Sentiment Analysis Interface Complete!**")
-    print("✅ Streamlined to 150 lines with clear interface")
-    print("✅ Delegates to sophisticated sentiment tools ecosystem")
-    print("✅ Consistent return types and error handling")
-    print("✅ Enhanced LLM insights included by default") 

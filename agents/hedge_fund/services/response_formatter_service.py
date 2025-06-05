@@ -467,21 +467,3 @@ def get_response_summary(formatted_response: FormattedResponse) -> str:
 def is_actionable_response(formatted_response: FormattedResponse) -> bool:
     """Check if the response contains actionable trading advice"""
     return formatted_response.response_type == "trade_recommendation"
-
-# --- Example Usage ---
-
-if __name__ == "__main__":
-
-    # Test different query types
-    test_queries = [
-        "Should I buy Apple stock?",
-        "What is RSI?",
-        "How do I cook pasta?",
-        "I need more information"
-    ]
-    
-    print("Response Formatter testing would require:")
-    print("1. Enhanced Action Parser to create ParsedAction objects")
-    print("2. Asset Search Results and Trade Recommendations")
-    print("3. Example showing format_response() functionality")
-    print(f"\nTest queries available: {test_queries}") 

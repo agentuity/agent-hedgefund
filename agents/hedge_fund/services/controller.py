@@ -106,7 +106,7 @@ def run_hedge_fund_controller(user_query: str, context: Optional[Dict[str, Any]]
         Formatted response string
     """
     
-    logger.info(f"🚀 Starting hedge fund analysis workflow")
+    logger.info("🚀 Starting hedge fund analysis workflow")
     logger.info(f"📝 User query: {user_query}")
     
     # Create workflow with specialized nodes
@@ -137,7 +137,7 @@ def run_hedge_fund_controller(user_query: str, context: Optional[Dict[str, Any]]
         if final_state.get("error"):
             logger.error(f"❌ Workflow completed with error: {final_state['error']}")
         else:
-            logger.info(f"✅ Workflow completed successfully")
+            logger.info("✅ Workflow completed successfully")
         
         # Extract formatted response
         formatted_response = final_state.get("formatted_response")
@@ -149,35 +149,3 @@ def run_hedge_fund_controller(user_query: str, context: Optional[Dict[str, Any]]
     except Exception as e:
         logger.error(f"❌ Workflow execution failed: {e}")
         return f"Sorry, I encountered an unexpected error: {str(e)}. Please try again."
-
-# --- Example Usage ---
-if __name__ == "__main__":
-    test_queries = [
-        "Should I buy Apple stock?",  # Should trigger risk manager
-        "I own 100 shares of Tesla, should I buy more?",  # Should trigger risk manager
-        "Is my portfolio too risky with 50% tech stocks?",  # Portfolio analysis
-        "How is Bitcoin doing today?",  # General market - no risk manager
-        "What is RSI?",  # Educational - no risk manager
-        "AAPL vs MSFT which is better?",  # Comparison - might trigger risk manager
-        "How do I cook pasta?"  # Off-topic
-    ]
-    
-    for query in test_queries:
-        print(f"\n{'='*80}")
-        print(f"Testing Query: {query}")
-        print(f"{'='*80}")
-        
-        try:
-            response = run_hedge_fund_controller(query)
-            print(response)
-        except Exception as e:
-            print(f"❌ Error: {e}")
-        
-        print(f"\n{'-'*40}")
-        print("✅ Test completed")
-        
-    print(f"\n🎉 **Risk Manager Integration Complete!**")
-    print("✅ Conditional routing based on trade intent")
-    print("✅ Risk assessment for actual trade decisions")  
-    print("✅ Bypasses risk manager for general market questions")
-    print("✅ Ready for enhanced user-personalized recommendations")

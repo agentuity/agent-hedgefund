@@ -327,32 +327,3 @@ def format_asset_not_found_message(search_result: AssetSearchResult) -> str:
     ])
     
     return "\n".join(message_parts)
-
-# --- Example Usage ---
-
-if __name__ == "__main__":
-    # Test the asset search agent
-    test_queries = [
-        "AAPL",
-        "Tesla",
-        "Bitcoin",
-        "BTC-USD", 
-        "invalid_asset_12345",
-        "Apple Inc"
-    ]
-    
-    for query in test_queries:
-        print(f"\n{'='*60}")
-        print(f"Searching: {query}")
-        print(f"{'='*60}")
-        
-        result = search_and_validate_asset(query)
-        
-        if result.found:
-            print(f"✅ Found: {get_asset_summary(result)}")
-            print(f"Tradeable: {is_tradeable_asset(result)}")
-            if result.asset_info.current_price:
-                print(f"Current Price: ${result.asset_info.current_price:.2f}")
-        else:
-            print(f"❌ Not found: {result.error}")
-            print(f"Suggestions: {result.suggestions[:2]}") 

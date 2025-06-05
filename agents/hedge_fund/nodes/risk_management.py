@@ -42,9 +42,7 @@ def assess_risk_node(state: HedgeFundState) -> HedgeFundState:
             state["next_action"] = NextAction.PORTFOLIO_DECISION
         else:
             state["next_action"] = NextAction.FORMAT_RESPONSE
-        
-        logger.info("✅ Risk assessment complete")
-        
+
         logger.info(f"✅ Risk assessment complete: {risk_assessment.risk_level} risk")
         logger.info(f"🎯 Position size recommendation: {risk_assessment.position_size_recommendation:.1%}")
         logger.info(f"🚦 Should proceed: {risk_assessment.should_proceed}")

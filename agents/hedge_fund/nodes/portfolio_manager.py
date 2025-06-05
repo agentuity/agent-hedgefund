@@ -10,7 +10,6 @@ Makes final BUY/SELL decisions with specific quantities based on:
 
 import json
 import logging
-from typing import Optional
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -99,7 +98,7 @@ def portfolio_manager_node(state: HedgeFundState) -> HedgeFundState:
         )
         
         logger.info(f"✅ Portfolio decision: {portfolio_decision.decision.action.value} {portfolio_decision.decision.quantity} shares")
-        logger.info(f"💼 Portfolio manager complete - routing to response generation")
+        logger.info("💼 Portfolio manager complete - routing to response generation")
         
         # Store decision and proceed to response formatting
         return {

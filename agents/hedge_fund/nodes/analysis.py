@@ -21,8 +21,7 @@ def convert_asset_type(module_asset_type: AssetType) -> TradeAssetType:
     """Convert module AssetType to trade decision AssetType"""
     if module_asset_type == AssetType.CRYPTO:
         return TradeAssetType.CRYPTO
-    elif module_asset_type in [AssetType.STOCK, AssetType.ETF, AssetType.INDEX]:
-        # ETFs and index funds are analyzed the same as stocks for trading decisions
+    if module_asset_type in [AssetType.STOCK, AssetType.ETF, AssetType.INDEX]:
         return TradeAssetType.STOCK
     else:
         raise ValueError(f"Unsupported asset type: {module_asset_type}")
@@ -115,4 +114,4 @@ def _has_trade_intent(parsed_action, recommendation) -> bool:
     # Portfolio context suggests they want trading advice
     portfolio_context = parsed_action.portfolio_context_strength > 0.5
     
-    return strong_trade_intent and actionable_recommendation 
+    return strong_trade_intent and actionable_recommendation and portfolio_context

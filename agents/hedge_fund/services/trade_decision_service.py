@@ -756,27 +756,3 @@ def run_trade_decision_analysis(request: TradeAnalysisRequest) -> TradeRecommend
         return recommendation
     else:
         return create_error_recommendation(request, "Workflow failed to generate recommendation")
-
-if __name__ == "__main__":
-    request = TradeAnalysisRequest(
-        symbol="AAPL",
-        asset_type=AssetType.STOCK,
-        timeframe="1d"
-    )
-    
-    logger.info("=== TRADE DECISION ANALYSIS ===")
-    recommendation = run_trade_decision_analysis(request)
-    logger.info("\n=== FINAL RECOMMENDATION ===")
-    logger.info(recommendation.model_dump_json(indent=2))
-    
-    # Example crypto analysis
-    crypto_request = TradeAnalysisRequest(
-        symbol="BTC-USD",
-        asset_type=AssetType.CRYPTO,
-        timeframe="1d"
-    )
-    
-    logger.info("\n\n=== CRYPTO TRADE DECISION ANALYSIS ===")
-    crypto_recommendation = run_trade_decision_analysis(crypto_request)
-    logger.info("\n=== CRYPTO FINAL RECOMMENDATION ===")
-    logger.info(crypto_recommendation.model_dump_json(indent=2)) 
