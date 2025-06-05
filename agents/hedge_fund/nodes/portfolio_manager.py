@@ -168,7 +168,8 @@ def _calculate_simple_position_sizing(
     
     # Adjust for recommendation strength
     if trade_recommendation and hasattr(trade_recommendation, 'confidence'):
-        confidence_str = trade_recommendation.confidence.value
+        confidence_obj = getattr(trade_recommendation, "confidence", "")
+        confidence_str = getattr(confidence_obj, "value", str(confidence_obj))
         if "LOW" in confidence_str.upper():
             risk_multiplier *= 0.6
         elif "HIGH" in confidence_str.upper():
@@ -278,6 +279,7 @@ Decision (include ALL required fields):""")
             action=TradeAction.HOLD,
             quantity=0,
             confidence=0.0,
+            amount_usd=0.0,
             reasoning=f"Error in decision making: {str(e)}. Holding for safety."
         )
         

@@ -91,8 +91,12 @@ def _format_portfolio_decision_table(portfolio_decision, asset_search_result, tr
     if asset_search_result and asset_search_result.asset_info:
         current_price = asset_search_result.asset_info.current_price or 0.0
     
-    # Calculate derived values
-    total_amount = quantity * current_price if current_price > 0 else decision.amount_usd
+    total_amount = (
+        quantity * current_price
+        if current_price and current_price > 0
+        else getattr(decision, "amount_usd", 0.0)
+    )
+   
     stop_loss = current_price * 0.9 if current_price > 0 else 0  # 10% stop loss
     take_profit = current_price * 1.1 if current_price > 0 else 0  # 10% take profit
     
