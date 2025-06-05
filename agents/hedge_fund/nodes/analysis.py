@@ -64,9 +64,9 @@ def analyze_trade_node(state: HedgeFundState) -> HedgeFundState:
         if _should_route_to_risk_manager(parsed_action, recommendation):
             logger.info("🛡️ Routing to risk manager for trade intent assessment")
             state["next_action"] = NextAction.ASSESS_RISK
-        elif parsed_action.portfolio_context_strength > 0.7:
-            logger.info("📊 Strong portfolio context - future portfolio manager route")
-            state["next_action"] = NextAction.ANALYZE_PORTFOLIO  # Future: route to portfolio manager
+        elif _has_trade_intent(parsed_action, recommendation):
+            logger.info("💼 Trade intent detected - routing to portfolio manager")
+            state["next_action"] = NextAction.PORTFOLIO_DECISION
         else:
             state["next_action"] = NextAction.FORMAT_RESPONSE
         
@@ -101,4 +101,18 @@ def _should_route_to_risk_manager(parsed_action, recommendation) -> bool:
     if parsed_action.existing_positions and actionable_recommendation:
         return True
     
-    return False 
+    return False
+
+def _has_trade_intent(parsed_action, recommendation) -> bool:
+    """Check if user has trade intent and should go to portfolio manager"""
+    
+    # Strong trade intent from user query
+    strong_trade_intent = parsed_action.trade_intent_strength > 0.6
+    
+    # Actionable recommendation from analysis
+    actionable_recommendation = recommendation.decision.value in ["BUY", "SELL", "STRONG_BUY", "STRONG_SELL"]
+    
+    # Portfolio context suggests they want trading advice
+    portfolio_context = parsed_action.portfolio_context_strength > 0.5
+    
+    return strong_trade_intent and actionable_recommendation 

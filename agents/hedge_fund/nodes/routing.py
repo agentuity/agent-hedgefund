@@ -35,6 +35,7 @@ def route_based_on_next_action(state: HedgeFundState) -> str:
         # From analysis decisions  
         NextAction.ASSESS_RISK: "assess_risk",
         NextAction.ANALYZE_PORTFOLIO: "generate_response",  # Future: would route to portfolio manager
+        NextAction.PORTFOLIO_DECISION: "portfolio_manager",
         
         # Error handling
         NextAction.FORMAT_ERROR: "format_error"
@@ -43,6 +44,8 @@ def route_based_on_next_action(state: HedgeFundState) -> str:
     # Future routing logging
     if next_action == NextAction.ASSESS_RISK:
         logger.info("🛡️ Routing to risk manager")
+    elif next_action == NextAction.PORTFOLIO_DECISION:
+        logger.info("💼 Routing to portfolio manager")
     elif next_action == NextAction.ANALYZE_PORTFOLIO:
         logger.info("🔮 Future: Would route to portfolio manager")
     

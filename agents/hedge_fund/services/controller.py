@@ -14,7 +14,7 @@ from agents.hedge_fund.models import HedgeFundState
 
 from agents.hedge_fund.nodes import (
     parse_query_node, search_asset_node, analyze_trade_node, assess_risk_node,
-    generate_llm_response_node, format_error_node, route_based_on_next_action
+    portfolio_manager_node, generate_llm_response_node, format_error_node, route_based_on_next_action
 )
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ def create_hedge_fund_workflow() -> StateGraph:
     workflow.add_node("search_asset", search_asset_node)
     workflow.add_node("analyze_trade", analyze_trade_node)
     workflow.add_node("assess_risk", assess_risk_node)
+    workflow.add_node("portfolio_manager", portfolio_manager_node)
     workflow.add_node("generate_response", generate_llm_response_node)
     workflow.add_node("format_error", format_error_node)
     
@@ -60,6 +61,7 @@ def create_hedge_fund_workflow() -> StateGraph:
         route_based_on_next_action,
         {
             "assess_risk": "assess_risk",
+            "portfolio_manager": "portfolio_manager",
             "generate_response": "generate_response",
             "format_error": "format_error"
         }
@@ -67,6 +69,16 @@ def create_hedge_fund_workflow() -> StateGraph:
     
     workflow.add_conditional_edges(
         "assess_risk",
+        route_based_on_next_action,
+        {
+            "portfolio_manager": "portfolio_manager",
+            "generate_response": "generate_response",
+            "format_error": "format_error"
+        }
+    )
+    
+    workflow.add_conditional_edges(
+        "portfolio_manager",
         route_based_on_next_action,
         {
             "generate_response": "generate_response",
@@ -109,6 +121,7 @@ def run_hedge_fund_controller(user_query: str, context: Optional[Dict[str, Any]]
         "is_valid_asset": False,
         "trade_recommendation": None,
         "risk_assessment": None,
+        "portfolio_decision": None,
         "formatted_response": None,
         "next_action": None,
         "response_ready": False,

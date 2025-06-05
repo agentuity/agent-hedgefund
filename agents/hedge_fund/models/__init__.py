@@ -12,6 +12,10 @@ from agents.hedge_fund.models.user_context import (
     RiskLimits, TradingPreferences, InvestmentStyle, TimeHorizon,
     create_sample_user_context, parse_user_context_from_dict
 )
+from agents.hedge_fund.models.portfolio_decision import (
+    TradeAction, PortfolioDecision, PortfolioManagerOutput, 
+    PositionSizing, PortfolioContext
+)
 
 __all__ = [
     # Workflow models
@@ -33,5 +37,12 @@ __all__ = [
     "InvestmentStyle",
     "TimeHorizon",
     "create_sample_user_context",
-    "parse_user_context_from_dict"
+    "parse_user_context_from_dict",
+    
+    # Portfolio decision models
+    "TradeAction",
+    "PortfolioDecision", 
+    "PortfolioManagerOutput",
+    "PositionSizing",
+    "PortfolioContext"
 ] 

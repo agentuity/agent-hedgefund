@@ -27,6 +27,7 @@ class NextAction(Enum):
     # From analysis
     ASSESS_RISK = "assess_risk"
     ANALYZE_PORTFOLIO = "analyze_portfolio"
+    PORTFOLIO_DECISION = "portfolio_decision"
     FORMAT_RESPONSE = "format_response"
     
     # Error handling
@@ -53,6 +54,9 @@ class HedgeFundState(TypedDict):
     
     # Risk assessment results
     risk_assessment: Optional[Any]  # Will be RiskAssessment once imported
+    
+    # Portfolio management results
+    portfolio_decision: Optional[Any]  # Will be PortfolioManagerOutput once imported
     
     # Final output
     formatted_response: Optional[Any]  # Will be FormattedResponse once imported

@@ -23,6 +23,7 @@ def generate_llm_response_node(state: HedgeFundState) -> HedgeFundState:
         asset_search_result = state.get("asset_search_result")
         trade_recommendation = state.get("trade_recommendation")
         risk_assessment = state.get("risk_assessment")
+        portfolio_decision = state.get("portfolio_decision")
         
         if not parsed_action:
             state["error"] = "No parsed action available for response generation"
@@ -31,24 +32,34 @@ def generate_llm_response_node(state: HedgeFundState) -> HedgeFundState:
         
         logger.info(f"🤖 Generating LLM response for: {parsed_action.original_query}")
         
-        # Create comprehensive prompt with all analysis data
-        prompt = _create_response_prompt(
-            parsed_action, asset_search_result, trade_recommendation, risk_assessment
-        )
-        
-        # Generate response using LLM
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
-        response = llm.invoke([HumanMessage(content=prompt)])
+        # Check if we have a concrete portfolio decision to format
+        if portfolio_decision:
+            logger.info("📋 Formatting concrete portfolio decision into trade table")
+            response_content = _format_portfolio_decision_table(
+                portfolio_decision, asset_search_result, trade_recommendation, risk_assessment
+            )
+        else:
+            logger.info("💭 No portfolio decision found - generating general LLM response")
+            # Create comprehensive prompt with all analysis data
+            prompt = _create_response_prompt(
+                parsed_action, asset_search_result, trade_recommendation, risk_assessment
+            )
+            
+            # Generate response using LLM
+            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+            response = llm.invoke([HumanMessage(content=prompt)])
+            response_content = response.content
         
         # Create formatted response
         formatted_response = FormattedResponse(
-            content=response.content,
-            response_type="llm_generated",
+            content=response_content,
+            response_type="portfolio_decision" if portfolio_decision else "llm_generated",
             metadata={
                 "original_query": parsed_action.original_query,
                 "intent_type": parsed_action.intent_type.value,
                 "has_trade_recommendation": trade_recommendation is not None,
                 "has_risk_assessment": risk_assessment is not None,
+                "has_portfolio_decision": portfolio_decision is not None,
                 "trade_intent_strength": parsed_action.trade_intent_strength,
                 "confidence": parsed_action.confidence
             },
@@ -66,6 +77,99 @@ def generate_llm_response_node(state: HedgeFundState) -> HedgeFundState:
         logger.error(f"❌ LLM response generation error: {e}")
     
     return state
+
+def _format_portfolio_decision_table(portfolio_decision, asset_search_result, trade_recommendation, risk_assessment) -> str:
+    """Format portfolio decision into concrete trade table"""
+    
+    decision = portfolio_decision.decision
+    symbol = decision.symbol
+    action = decision.action.value.upper()
+    quantity = decision.quantity
+    
+    # Get price info
+    current_price = 0.0
+    if asset_search_result and asset_search_result.asset_info:
+        current_price = asset_search_result.asset_info.current_price or 0.0
+    
+    # Calculate derived values
+    total_amount = quantity * current_price if current_price > 0 else decision.amount_usd
+    stop_loss = current_price * 0.9 if current_price > 0 else 0  # 10% stop loss
+    take_profit = current_price * 1.1 if current_price > 0 else 0  # 10% take profit
+    
+    # Get risk info
+    risk_level = "MEDIUM"
+    if risk_assessment:
+        risk_level = risk_assessment.risk_level.upper()
+    
+    # Format the response based on action
+    if action == "BUY":
+        response = f"""🎯 TRADE RECOMMENDATION: {action}
+
+┌─────────────────┬──────────────────┐
+│ Symbol          │ {symbol:<16} │
+│ Action          │ {action:<16} │
+│ Quantity        │ {quantity} shares{'':<7} │
+│ Entry Price     │ ${current_price:.2f}{'':<11} │
+│ Total Cost      │ ${total_amount:,.2f}{'':<8} │
+│ Stop Loss       │ ${stop_loss:.2f} (-10%){'':<5} │
+│ Take Profit     │ ${take_profit:.2f} (+10%){'':<5} │
+│ Risk Level      │ {risk_level:<16} │
+│ Confidence      │ {decision.confidence:.0f}%{'':<12} │
+└─────────────────┴──────────────────┘
+
+💡 **Action Required:**
+• Place market buy order for {quantity} {symbol} shares
+• Set stop loss at ${stop_loss:.2f}
+• Monitor position for exit signals
+
+💭 **Reasoning:** {decision.reasoning}
+
+📊 **Portfolio Impact:**
+• Cash allocation after trade: {portfolio_decision.cash_allocation_after_trade:.1f}%
+• Expected outcome: {portfolio_decision.expected_outcome}
+• Overall strategy: {portfolio_decision.overall_strategy}"""
+
+    elif action == "SELL":
+        response = f"""🎯 TRADE RECOMMENDATION: {action}
+
+┌─────────────────┬──────────────────┐
+│ Symbol          │ {symbol:<16} │
+│ Action          │ {action:<16} │
+│ Quantity        │ {quantity} shares{'':<7} │
+│ Current Price   │ ${current_price:.2f}{'':<11} │
+│ Total Value     │ ${total_amount:,.2f}{'':<8} │
+│ Exit Reason     │ Analysis signal{'':<2} │
+│ Urgency         │ NORMAL{'':<10} │
+└─────────────────┴──────────────────┘
+
+💡 **Action Required:**
+• Place market sell order for {quantity} {symbol} shares
+• Expected proceeds: ${total_amount:,.2f}
+
+💭 **Reasoning:** {decision.reasoning}
+
+📊 **Portfolio Impact:**
+• Cash allocation after trade: {portfolio_decision.cash_allocation_after_trade:.1f}%
+• Expected outcome: {portfolio_decision.expected_outcome}"""
+
+    else:  # HOLD
+        response = f"""🎯 TRADE RECOMMENDATION: {action}
+
+┌─────────────────┬──────────────────┐
+│ Symbol          │ {symbol:<16} │
+│ Action          │ {action:<16} │
+│ Current Price   │ ${current_price:.2f}{'':<11} │
+│ Reason          │ Mixed signals{'':<3} │
+│ Next Review     │ In 1 week{'':<7} │
+└─────────────────┴──────────────────┘
+
+💡 **Action Required:**
+• No immediate action needed
+• Monitor for clearer signals
+
+💭 **Reasoning:** {decision.reasoning}"""
+
+    return response
 
 def _create_response_prompt(
     parsed_action,
