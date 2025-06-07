@@ -48,13 +48,9 @@ def determine_routing_decision(parsed_action: ParsedAction) -> NextAction:
     if parsed_action.intent_type == IntentType.INVALID_QUERY:
         return NextAction.REJECT_QUERY
     
-    if parsed_action.intent_type == IntentType.GENERAL_INFO:
-        return NextAction.GENERAL_RESPONSE
-    
     if parsed_action.primary_asset or parsed_action.intent_type in [
         IntentType.TRADE_ANALYSIS, 
-        IntentType.MARKET_UPDATE,
-        IntentType.ASSET_COMPARISON
+        IntentType.MARKET_UPDATE
     ]:
         if not parsed_action.primary_asset:
             return NextAction.CLARIFICATION
@@ -62,13 +58,13 @@ def determine_routing_decision(parsed_action: ParsedAction) -> NextAction:
     
     if parsed_action.intent_type == IntentType.PORTFOLIO_REVIEW:
         if parsed_action.portfolio_context_strength > 0.7:
-            return NextAction.PORTFOLIO_ANALYSIS  # Future: route to portfolio manager
+            return NextAction.PORTFOLIO_ANALYSIS # TODO: route to proper node when portfolio storage is implemented
         else:
             return NextAction.CLARIFICATION
     
     if parsed_action.intent_type == IntentType.RISK_ASSESSMENT:
         if parsed_action.risk_concern_level > 0.6:
-            return NextAction.RISK_ANALYSIS  # Future: route to risk manager
+            return NextAction.RISK_ANALYSIS
         else:
             return NextAction.CLARIFICATION
     

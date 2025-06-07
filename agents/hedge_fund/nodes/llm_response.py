@@ -185,9 +185,7 @@ def _create_response_prompt(
     
     if(parsed_action.intent_type == IntentType.INVALID_QUERY):
         return "I'm sorry, I can only help with trading and investment questions. Please ask about a specific stock or crypto asset."
-    if(parsed_action.intent_type == IntentType.UNCLEAR):
-        return "I'm sorry, I'm not sure what you're asking. Please ask about a specific stock or crypto asset."
-    
+
     prompt_parts = [
         "You are a professional hedge fund trading assistant. Your job is to provide clear, direct, and actionable responses to trading questions.",
         "",

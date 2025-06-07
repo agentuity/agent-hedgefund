@@ -413,7 +413,7 @@ def format_response(
         elif parsed_action.confidence < 0.5:  # Need clarification
             return format_clarification_response(parsed_action)
         
-        elif parsed_action.intent_type in [IntentType.TRADE_ANALYSIS, IntentType.MARKET_UPDATE, IntentType.ASSET_COMPARISON]:
+        elif parsed_action.intent_type in [IntentType.TRADE_ANALYSIS, IntentType.MARKET_UPDATE]:
             # Handle asset search results
             if not asset_search_result:
                 return _format_error_response("No asset search results available")

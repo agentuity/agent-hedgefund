@@ -9,9 +9,8 @@ from typing import Dict, Any, Optional
 import logging
 
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
 
-from agents.hedge_fund.models import ParsedAction, IntentType, TradeDirection
+from agents.hedge_fund.models import ParsedAction
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +86,7 @@ INTENT TYPES (choose the most appropriate):
    - "What's happening with Tesla stock today?"
    - "Bitcoin price update"
 
-5. **general_info** - Educational/informational questions
-   - "What is RSI?"
-   - "How does technical analysis work?"
-   - "Explain options trading"
-
-6. **invalid_query** - Non-financial topics
+5. **invalid_query** - Non-financial topics
    - "How do I cook pasta?"
    - "What's the weather like?"
 

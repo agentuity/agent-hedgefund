@@ -228,8 +228,6 @@ The agent handles various types of trading queries with intelligent routing:
 🔹 Portfolio Context: "I own 100 shares of Tesla, should I buy more?" → Risk assessment
 🔹 Market Analysis: "How is Bitcoin doing today?" → Technical + sentiment analysis  
 🔹 Risk Assessment: "Is my portfolio too risky?" → Portfolio risk evaluation
-🔹 General Info: "What is RSI?" → Educational response
-🔹 Comparisons: "AAPL vs MSFT which is better?" → Comparative analysis
 ```
 
 ## 🎯 Intelligent Routing Logic
@@ -246,10 +244,6 @@ graph TD
     
     C --> F[Actionable Trading Table]
     D --> G[Market Analysis & Insights]
-    E --> H[Educational Content]
-    
-    style C fill:#c8e6c9
-    style F fill:#a5d6a7
 ```
 
 **High Trade Intent Examples:**

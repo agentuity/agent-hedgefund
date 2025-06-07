@@ -10,22 +10,13 @@ from pydantic import BaseModel, Field
 
 class IntentType(Enum):
     """User's primary intent"""
-    STOCK_ANALYSIS = "stock_analysis"
-    CRYPTO_ANALYSIS = "crypto_analysis" 
     PORTFOLIO_REVIEW = "portfolio_review"
     RISK_ASSESSMENT = "risk_assessment"
-    TRADE_EXECUTION = "trade_execution"
-    EDUCATION = "education"
-    
-    # Additional types expected by the codebase
     TRADE_ANALYSIS = "trade_analysis"
     MARKET_UPDATE = "market_update"
-    ASSET_COMPARISON = "asset_comparison"
-    GENERAL_INFO = "general_info"
     INVALID_QUERY = "invalid_query"
+    CLARIFICATION = "clarification"
     
-    UNCLEAR = "unclear"
-
 class TradeDirection(Enum):
     """Direction of intended trade"""
     BUY = "buy"
@@ -54,7 +45,7 @@ class ParsedAction(BaseModel):
     
     # Core Intent
     intent_type: IntentType = Field(
-        description="Primary financial intent: trade_analysis for buy/sell decisions, portfolio_review for portfolio questions, risk_assessment for risk evaluation, market_update for current market status, general_info for educational questions, invalid_query for non-financial topics"
+        description="Primary financial intent: trade_analysis for buy/sell decisions, portfolio_review for portfolio questions, risk_assessment for risk evaluation, market_update for current market status, invalid_query for non-financial topics"
     )
     confidence: float = Field(
         ge=0.0, le=1.0,
@@ -110,10 +101,6 @@ class ParsedAction(BaseModel):
         default=0.0, ge=0.0, le=1.0,
         description="Urgency level: 1.0 for 'now/today/urgent', 0.5 for normal timing, 0.0 for no time pressure"
     )
-    specificity_score: float = Field(
-        default=0.0, ge=0.0, le=1.0,
-        description="How specific the request is: 1.0 for very specific, 0.0 for very vague"
-    )
     trade_intent_strength: float = Field(
         default=0.0, ge=0.0, le=1.0,
         description="Strength of trading intent: 1.0 for 'should I buy', 0.5 for 'tell me about', 0.0 for general questions"
@@ -127,16 +114,12 @@ class ParsedAction(BaseModel):
         description="Level of risk concern expressed: 1.0 for explicit risk questions, 0.5 for risk keywords, 0.0 for no risk concern"
     )
     
-    # Extracted Context
     key_concerns: List[str] = Field(
         default_factory=list,
-        description="Main topics or concerns mentioned by the user"
+        description="Main topics or concerns mentioned by the user related to the asset"
     )
-    mentioned_indicators: List[str] = Field(
-        default_factory=list,
-        description="Technical indicators mentioned (RSI, MACD, SMA, etc.)"
-    )
-    
+
+
     # Legacy properties for compatibility
     additional_assets: List[str] = Field(
         default_factory=list,
@@ -174,10 +157,6 @@ class ParsedAction(BaseModel):
     # Fallback
     original_query: str = Field(
         description="The exact original user query for reference"
-    )
-    requires_clarification: bool = Field(
-        default=False,
-        description="True if the query is too ambiguous and needs clarification"
     )
     clarification_needed: List[str] = Field(
         default_factory=list,
