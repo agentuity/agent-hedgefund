@@ -118,41 +118,6 @@ class ParsedAction(BaseModel):
         default_factory=list,
         description="Main topics or concerns mentioned by the user related to the asset"
     )
-
-
-    # Legacy properties for compatibility
-    additional_assets: List[str] = Field(
-        default_factory=list,
-        description="Other assets mentioned beyond the primary asset"
-    )
-    mentioned_positions: List[PositionMention] = Field(
-        default_factory=list,
-        description="Alias for existing_positions for backward compatibility"
-    )
-    quantities: List[QuantityMention] = Field(
-        default_factory=list,
-        description="All quantity mentions found in the query"
-    )
-    time_references: List[str] = Field(
-        default_factory=list,
-        description="Time-related words: 'today', 'tomorrow', 'next week', etc."
-    )
-    risk_keywords: List[str] = Field(
-        default_factory=list,
-        description="Risk-related words found: 'risky', 'safe', 'volatile', etc."
-    )
-    market_events: List[str] = Field(
-        default_factory=list,
-        description="Market events mentioned: 'earnings', 'fed meeting', 'economic data', etc."
-    )
-    additional_metadata: Optional[str] = Field(
-        default=None,
-        description="Additional context or metadata as a JSON string if needed"
-    )
-    reasoning: str = Field(
-        default="",
-        description="Brief explanation of the parsing decision"
-    )
     
     # Fallback
     original_query: str = Field(
