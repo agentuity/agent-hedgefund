@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+To run and test this project, you will have to run the server itself, wait until the server starts properly, typically 15-20 seconds, then you can tests against it.
+
+Agentuity uses UV -- you must always use UV to run. For instance: `uv run server.py` will start the project.
+
+The recommended way is using `agentuity dev` to run locally.

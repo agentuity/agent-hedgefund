@@ -3,6 +3,30 @@ description: Guidelines for writing Agentuity AI Agents in Python
 globs: "agents/**/*.py"
 alwaysApply: true
 ---
+# Project Language
+- This project is using Python as the primary programming language and uv as the package manager. We also use `pyproject.toml` for dependency management and project configuration.
+
+# Tech Stack & Architecture
+- **Framework**: Agentuity for agent deployment and networking infrastructure
+- **Workflow Management**: LangGraph for agent state management and complex workflows
+- **LLM Integration**: LangChain for language model functionality and tool integration
+- **Data Validation**: Pydantic for robust data models and type safety
+- **Financial Data**: yfinance for stock data, CoinGecko API for cryptocurrency data
+- **Technical Analysis**: Custom implementations of SMA, EMA, RSI, MACD indicators
+- **Package Management**: uv for fast dependency resolution and virtual environment management
+
+# Project Structure
+- **Modular Agent Architecture**: Each agent (Technical Analyst, Crypto Analyst, Risk Manager, Portfolio Manager) is a specialized module
+- **Separation of Concerns**: Pure technical analysis functions separate from LLM-based interpretation
+- **Real API Integration**: Live market data fetching with proper error handling
+- **Professional Trading Setup**: EMA 8/21 crossovers + MACD confluence system for signal generation
+
+# Development Principles
+- Type hints and Pydantic models for all data structures
+- Comprehensive error handling for data fetching and calculations
+- Actionable signals with strength scoring (0.0-1.0) and human-readable explanations
+- Modular design allowing easy addition of new indicators and strategies
+- Real-time data integration with fallback mechanisms
 
 # AI Agent File
 
@@ -32,3 +56,8 @@ The AgentResponse class provides a set of helper methods for responding with dif
 ### AgentContext
 
 The AgentContext has information specific to the incoming Agent request and a set of helper methods for accessing services like KeyValue storage and Vector storage.
+
+# LangGraph and LangChain Integration Rule
+- For agent and workflow logic, use LangGraph to manage agent state, tooling, and workflow orchestration.
+- Use LangChain for LLM-related functionality within agents or tools.
+- Use Agentuity for higher-level networking, request/response handling, and deployment.
