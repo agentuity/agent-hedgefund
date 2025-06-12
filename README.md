@@ -8,6 +8,7 @@
 
 <br />
 </div>
+
 # 🏦 AI Hedge Fund Agent
 
 A sophisticated AI-powered hedge fund trading agent built with **Agentuity** and **LangGraph** orchestration, delivering professional-grade trading decisions through comprehensive market analysis and intelligent portfolio management.
