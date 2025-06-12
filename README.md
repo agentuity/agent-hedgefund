@@ -77,8 +77,6 @@ The agent handles various types of trading queries with intelligent routing:
 🔹 Risk Assessment: "Is my portfolio too risky?" → Portfolio risk evaluation
 ```
 
-
-
 ## 🏗️ Deployment with Agentuity
 
 ### Local Development
